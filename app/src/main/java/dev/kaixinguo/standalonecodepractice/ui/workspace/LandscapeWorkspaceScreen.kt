@@ -20,8 +20,22 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
             addAll(sampleFolders())
         }
     }
-    val initialSelectedSetId = remember(folders) { folders.firstOrNull()?.sets?.firstOrNull()?.id.orEmpty() }
-    var selectedProblemTitle by remember { mutableStateOf("Tree Traversal") }
+    val initialSelectedSetId = remember(folders) {
+        folders
+            .flatMap { it.sets }
+            .firstOrNull { set -> set.problems.any { it.active } }
+            ?.id
+            ?: folders.firstOrNull()?.sets?.firstOrNull()?.id.orEmpty()
+    }
+    val initialSelectedProblemId = remember(folders) {
+        folders
+            .flatMap { it.sets }
+            .flatMap { it.problems }
+            .firstOrNull { it.active }
+            ?.id
+            ?: folders.firstOrNull()?.sets?.firstOrNull()?.problems?.firstOrNull()?.id.orEmpty()
+    }
+    var selectedProblemId by remember { mutableStateOf(initialSelectedProblemId) }
     var selectedProblemSetId by remember { mutableStateOf(initialSelectedSetId) }
     var sidebarMode by remember { mutableStateOf(SidebarMode.Problems) }
     var sidebarCollapsed by remember { mutableStateOf(false) }
@@ -37,7 +51,7 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
         .firstOrNull { it.id == selectedProblemSetId }
         ?: allSets.firstOrNull()
     val selectedProblem = selectedProblemSet?.problems
-        ?.firstOrNull { it.title == selectedProblemTitle }
+        ?.firstOrNull { it.id == selectedProblemId }
         ?: selectedProblemSet?.problems?.firstOrNull()
         ?: allSets.flatMap { it.problems }.firstOrNull()
 
@@ -58,41 +72,41 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
             SidebarPane(
                 folders = folders,
                 selectedProblemSetId = selectedProblemSet?.id.orEmpty(),
-                selectedProblemTitle = selectedProblem?.title.orEmpty(),
+                selectedProblemId = selectedProblem?.id.orEmpty(),
                 onProblemSetSelected = { setId ->
                     selectedProblemSetId = setId
                     val set = folders.flatMap { it.sets }.firstOrNull { it.id == setId }
                     if (set != null) {
                         val activeProblem = set.problems.firstOrNull { it.active } ?: set.problems.firstOrNull()
                         if (activeProblem != null) {
-                            selectedProblemTitle = activeProblem.title
+                            selectedProblemId = activeProblem.id
                         }
                     }
                 },
-                onProblemSelected = { setId, problemTitle ->
+                onProblemSelected = { setId, problemId ->
                     selectedProblemSetId = setId
-                    selectedProblemTitle = problemTitle
+                    selectedProblemId = problemId
                     val set = folders.flatMap { it.sets }.firstOrNull { it.id == setId }
                     if (set != null) {
-                        val updated = set.problems.map { it.copy(active = it.title == problemTitle) }
+                        val updated = set.problems.map { it.copy(active = it.id == problemId) }
                         set.problems.clear()
                         set.problems.addAll(updated)
                     }
                 },
                 onDeleteProblem = { setId, problem ->
                     val set = folders.flatMap { it.sets }.firstOrNull { it.id == setId } ?: return@SidebarPane
-                    val removingSelected = selectedProblemSetId == setId && selectedProblemTitle == problem.title
-                    set.problems.removeAll { it.title == problem.title }
+                    val removingSelected = selectedProblemSetId == setId && selectedProblemId == problem.id
+                    set.problems.removeAll { it.id == problem.id }
                     if (removingSelected) {
                         val fallback = set.problems.firstOrNull()
                             ?: folders.flatMap { it.sets }.firstOrNull { it.problems.isNotEmpty() }?.problems?.firstOrNull()
                         if (fallback != null) {
                             selectedProblemSetId = allSets
-                                .first { candidate -> candidate.problems.any { it.title == fallback.title } }.id
-                            selectedProblemTitle = fallback.title
+                                .first { candidate -> candidate.problems.any { it.id == fallback.id } }.id
+                            selectedProblemId = fallback.id
                         } else {
                             selectedProblemSetId = ""
-                            selectedProblemTitle = ""
+                            selectedProblemId = ""
                         }
                     }
                 },
@@ -104,8 +118,8 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
                         )
                     )
                 },
-                onCreateSet = { folderTitle ->
-                    val folder = folders.firstOrNull { it.title == folderTitle } ?: return@SidebarPane
+                onCreateSet = { folderId ->
+                    val folder = folders.firstOrNull { it.id == folderId } ?: return@SidebarPane
                     val existingTitles = folder.sets.map { it.title }.toSet()
                     var index = 1
                     var candidate = "New Set"
@@ -121,7 +135,7 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
                     )
                     if (selectedProblemSet == null) {
                         selectedProblemSetId = folder.sets.last().id
-                        selectedProblemTitle = ""
+                        selectedProblemId = ""
                     }
                 },
                 onDeleteSet = { setId ->
@@ -134,11 +148,11 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
                         val fallbackSet = folders.flatMap { it.sets }.firstOrNull()
                         val fallbackProblem = fallbackSet?.problems?.firstOrNull()
                         selectedProblemSetId = fallbackSet?.id.orEmpty()
-                        selectedProblemTitle = fallbackProblem?.title.orEmpty()
+                        selectedProblemId = fallbackProblem?.id.orEmpty()
                     }
                 },
-                onDeleteFolder = { folderTitle ->
-                    val folderIndex = folders.indexOfFirst { it.title == folderTitle }
+                onDeleteFolder = { folderId ->
+                    val folderIndex = folders.indexOfFirst { it.id == folderId }
                     if (folderIndex == -1) return@SidebarPane
                     val deletingFolder = folders[folderIndex]
                     val deletingSelected = deletingFolder.sets.any { it.id == selectedProblemSetId }
@@ -147,18 +161,18 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
                         val fallbackSet = folders.flatMap { it.sets }.firstOrNull()
                         val fallbackProblem = fallbackSet?.problems?.firstOrNull()
                         selectedProblemSetId = fallbackSet?.id.orEmpty()
-                        selectedProblemTitle = fallbackProblem?.title.orEmpty()
+                        selectedProblemId = fallbackProblem?.id.orEmpty()
                     }
                 },
                 onMoveProblem = { sourceSetId, targetSetId, problem, targetIndex ->
                     val sourceSet = folders.flatMap { it.sets }.firstOrNull { it.id == sourceSetId } ?: return@SidebarPane
                     val targetSet = folders.flatMap { it.sets }.firstOrNull { it.id == targetSetId } ?: return@SidebarPane
-                    val sourceIndex = sourceSet.problems.indexOfFirst { it.title == problem.title }
+                    val sourceIndex = sourceSet.problems.indexOfFirst { it.id == problem.id }
                     if (sourceIndex == -1) return@SidebarPane
                     if (sourceSetId == targetSetId && (targetIndex == sourceIndex || targetIndex == sourceIndex + 1)) {
                         return@SidebarPane
                     }
-                    sourceSet.problems.removeAll { it.title == problem.title }
+                    sourceSet.problems.removeAll { it.id == problem.id }
                     val adjustedIndex = if (sourceSetId == targetSetId && sourceIndex < targetIndex) {
                         targetIndex - 1
                     } else {
@@ -166,13 +180,13 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
                     }.coerceIn(0, targetSet.problems.size)
                     targetSet.problems.add(adjustedIndex, problem.copy(active = false))
 
-                    if (selectedProblemTitle == problem.title && selectedProblemSetId == sourceSetId) {
+                    if (selectedProblemId == problem.id && selectedProblemSetId == sourceSetId) {
                         selectedProblemSetId = targetSetId
-                        selectedProblemTitle = problem.title
+                        selectedProblemId = problem.id
                     }
                     folders.flatMap { it.sets }.forEach { set ->
                         val updated = set.problems.map { item ->
-                            item.copy(active = set.id == selectedProblemSetId && item.title == selectedProblemTitle)
+                            item.copy(active = set.id == selectedProblemSetId && item.id == selectedProblemId)
                         }
                         set.problems.clear()
                         set.problems.addAll(updated)

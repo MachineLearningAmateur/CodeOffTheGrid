@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Offset
 import java.util.UUID
 
 internal data class ProblemListItem(
+    val id: String = UUID.randomUUID().toString(),
     val title: String,
     val active: Boolean = false,
     val solved: Boolean = false,

@@ -41,12 +41,12 @@ internal fun ProblemPane(
     var selectedTab by remember { mutableStateOf(SupportTab.Problem) }
     var activeJobLabel by remember { mutableStateOf<String?>(null) }
     var revealedHintCount by remember { mutableStateOf(0) }
-    var customTestCode by remember(problem.title) { mutableStateOf(problem.customTests) }
+    var customTestCode by remember(problem.id) { mutableStateOf(problem.customTests) }
     var resultTitle by remember { mutableStateOf("Ready") }
     var resultMessage by remember { mutableStateOf("Run or submit your solution to see validation details here.") }
     var resultAccent by remember { mutableStateOf(TextSecondary) }
     val scope = rememberCoroutineScope()
-    val hints = remember(problem.title) { problem.hints }
+    val hints = remember(problem.id) { problem.hints }
 
     Surface(
         modifier = modifier,

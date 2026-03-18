@@ -1,5 +1,8 @@
 package dev.kaixinguo.standalonecodepractice.ui.workspace
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,16 +20,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -56,7 +61,7 @@ import dev.kaixinguo.standalonecodepractice.ui.theme.TextSecondary
 internal fun SidebarPane(
     folders: List<ProblemFolderState>,
     selectedProblemSetId: String,
-    selectedProblemTitle: String,
+    selectedProblemId: String,
     onProblemSetSelected: (String) -> Unit,
     onProblemSelected: (String, String) -> Unit,
     onDeleteProblem: (String, ProblemListItem) -> Unit,
@@ -119,7 +124,7 @@ internal fun SidebarPane(
                     SidebarMode.Problems -> ProblemsSidebarContent(
                         folders = folders,
                         selectedProblemSetId = selectedProblemSetId,
-                        selectedProblemTitle = selectedProblemTitle,
+                        selectedProblemId = selectedProblemId,
                         onProblemSetSelected = onProblemSetSelected,
                         onProblemSelected = onProblemSelected,
                         onDeleteProblem = onDeleteProblem,
@@ -235,7 +240,7 @@ private fun SidebarModeSelector(
 private fun ProblemsSidebarContent(
     folders: List<ProblemFolderState>,
     selectedProblemSetId: String,
-    selectedProblemTitle: String,
+    selectedProblemId: String,
     onProblemSetSelected: (String) -> Unit,
     onProblemSelected: (String, String) -> Unit,
     onDeleteProblem: (String, ProblemListItem) -> Unit,
@@ -310,12 +315,12 @@ private fun ProblemsSidebarContent(
                 contentPadding = PaddingValues(bottom = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                items(items = folders, key = { it.title }) { folder ->
+                items(items = folders, key = { it.id }) { folder ->
                     FolderTreeBlock(
                         folder = folder,
                         selectedProblemSetId = selectedProblemSetId,
-                        selectedProblemTitle = selectedProblemTitle,
-                        draggedProblemKey = draggedProblem?.let { "${it.sourceSetId}::${it.problem.title}" },
+                        selectedProblemId = selectedProblemId,
+                        draggedProblemKey = draggedProblem?.let { "${it.sourceSetId}::${it.problem.id}" },
                         hoveredInsertionTarget = hoveredInsertionTarget,
                         query = query,
                         problemFilter = problemFilter,
@@ -325,8 +330,20 @@ private fun ProblemsSidebarContent(
                         onCreateSet = onCreateSet,
                         onDeleteSet = onDeleteSet,
                         onDeleteFolder = onDeleteFolder,
-                        onSetBoundsChange = { setId, bounds -> setBounds[setId] = bounds },
-                        onProblemBoundsChange = { key, bounds -> problemBounds[key] = bounds },
+                        onSetBoundsChange = { setId, bounds ->
+                            if (bounds != null) {
+                                setBounds[setId] = bounds
+                            } else {
+                                setBounds.remove(setId)
+                            }
+                        },
+                        onProblemBoundsChange = { key, bounds ->
+                            if (bounds != null) {
+                                problemBounds[key] = bounds
+                            } else {
+                                problemBounds.remove(key)
+                            }
+                        },
                         onDragStart = { sourceSetId, problem, pointer, grabOffset, previewSizePx ->
                             draggedProblem = DraggedProblemState(
                                 sourceSetId = sourceSetId,
@@ -339,8 +356,10 @@ private fun ProblemsSidebarContent(
                             hoveredInsertionTarget = null
                             hoveredTrash = false
                         },
-                        onDragMove = { pointer ->
-                            val updatedDrag = draggedProblem?.copy(pointer = pointer)
+                        onDragMove = { dragDelta ->
+                            val updatedDrag = draggedProblem?.let { drag ->
+                                drag.copy(pointer = drag.pointer + dragDelta)
+                            }
                             draggedProblem = updatedDrag
                             val dragRect = updatedDrag?.previewRect()
                             val isOverTrash = dragRect != null && trashBounds?.overlapsWith(dragRect) == true
@@ -349,29 +368,29 @@ private fun ProblemsSidebarContent(
                                 hoveredSetId = null
                                 hoveredInsertionTarget = null
                             } else {
+                                val currentPointer = updatedDrag?.pointer ?: return@FolderTreeBlock
                                 val hoveredProblemEntry = problemBounds.entries.firstOrNull { (_, bounds) ->
-                                    bounds.contains(pointer)
+                                    bounds.contains(currentPointer)
                                 }
                                 if (hoveredProblemEntry != null) {
-                                    val key = hoveredProblemEntry.key
-                                    val separatorIndex = key.indexOf("::")
-                                    val setId = key.substring(0, separatorIndex)
-                                    val rowsForSet = problemBounds.entries
-                                        .filter { it.key.startsWith("$setId::") }
-                                        .sortedBy { it.value.top }
-                                    val rowIndex = rowsForSet.indexOfFirst { it.key == key }
-                                    val hoveredBounds = hoveredProblemEntry.value
-                                    val insertionIndex = if (pointer.y < hoveredBounds.center.y) rowIndex else rowIndex + 1
-                                    hoveredSetId = setId
-                                    hoveredInsertionTarget = InsertionTarget(setId, insertionIndex)
+                                    hoveredSetId = hoveredProblemEntry.key.substringBefore("::")
+                                    hoveredInsertionTarget = resolveProblemInsertionTarget(
+                                        entryKey = hoveredProblemEntry.key,
+                                        pointer = currentPointer,
+                                        entryBounds = hoveredProblemEntry.value,
+                                        folders = folders
+                                    )
                                 } else {
                                     val targetSetId = setBounds.entries.firstOrNull { (_, bounds) ->
-                                        bounds.contains(pointer)
+                                        bounds.contains(currentPointer)
                                     }?.key
                                     hoveredSetId = targetSetId
                                     hoveredInsertionTarget = targetSetId?.let { setId ->
-                                        val rowCount = problemBounds.keys.count { it.startsWith("$setId::") }
-                                        InsertionTarget(setId, rowCount)
+                                        resolveSetInsertionTarget(
+                                            setId = setId,
+                                            folders = folders,
+                                            problemBounds = problemBounds
+                                        )
                                     }
                                 }
                             }
@@ -386,22 +405,20 @@ private fun ProblemsSidebarContent(
                                         bounds.contains(finalPointer)
                                     }
                                     if (problemEntry != null) {
-                                        val key = problemEntry.key
-                                        val separatorIndex = key.indexOf("::")
-                                        val setId = key.substring(0, separatorIndex)
-                                        val rowsForSet = problemBounds.entries
-                                            .filter { it.key.startsWith("$setId::") }
-                                            .sortedBy { it.value.top }
-                                        val rowIndex = rowsForSet.indexOfFirst { it.key == key }
-                                        val insertionIndex = if (finalPointer.y < problemEntry.value.center.y) rowIndex else rowIndex + 1
-                                        InsertionTarget(setId, insertionIndex)
+                                        resolveProblemInsertionTarget(
+                                            entryKey = problemEntry.key,
+                                            pointer = finalPointer,
+                                            entryBounds = problemEntry.value,
+                                            folders = folders
+                                        )
                                     } else {
                                         setBounds.entries.firstOrNull { (_, bounds) ->
                                             bounds.contains(finalPointer)
                                         }?.key?.let { setId ->
-                                            InsertionTarget(
+                                            resolveSetInsertionTarget(
                                                 setId = setId,
-                                                index = problemBounds.keys.count { it.startsWith("$setId::") }
+                                                folders = folders,
+                                                problemBounds = problemBounds
                                             )
                                         }
                                     }
@@ -416,7 +433,7 @@ private fun ProblemsSidebarContent(
                                             finalTarget.index
                                         )
                                         onProblemSetSelected(finalTarget.setId)
-                                        onProblemSelected(finalTarget.setId, drag.problem.title)
+                                        onProblemSelected(finalTarget.setId, drag.problem.id)
                                     }
                                 }
                             }
@@ -520,7 +537,7 @@ private fun ProblemsSidebarContent(
 private fun FolderTreeBlock(
     folder: ProblemFolderState,
     selectedProblemSetId: String,
-    selectedProblemTitle: String,
+    selectedProblemId: String,
     draggedProblemKey: String?,
     hoveredInsertionTarget: InsertionTarget?,
     query: String,
@@ -531,13 +548,13 @@ private fun FolderTreeBlock(
     onCreateSet: (String) -> Unit,
     onDeleteSet: (String) -> Unit,
     onDeleteFolder: (String) -> Unit,
-    onSetBoundsChange: (String, Rect) -> Unit,
-    onProblemBoundsChange: (String, Rect) -> Unit,
+    onSetBoundsChange: (String, Rect?) -> Unit,
+    onProblemBoundsChange: (String, Rect?) -> Unit,
     onDragStart: (String, ProblemListItem, Offset, Offset, IntSize) -> Unit,
     onDragMove: (Offset) -> Unit,
     onDragEnd: () -> Unit
 ) {
-    var expanded by remember(folder.title) { mutableStateOf(true) }
+    var expanded by remember(folder.id) { mutableStateOf(true) }
 
     CardBlock(title = null, modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -564,8 +581,8 @@ private fun FolderTreeBlock(
                 )
             }
             FolderActionMenu(
-                onCreateSet = { onCreateSet(folder.title) },
-                onDeleteFolder = { onDeleteFolder(folder.title) }
+                onCreateSet = { onCreateSet(folder.id) },
+                onDeleteFolder = { onDeleteFolder(folder.id) }
             )
         }
         if (expanded) {
@@ -580,7 +597,7 @@ private fun FolderTreeBlock(
                         ProblemSetTree(
                             problemSet = set,
                             selectedProblemSetId = selectedProblemSetId,
-                            selectedProblemTitle = selectedProblemTitle,
+                            selectedProblemId = selectedProblemId,
                             draggedProblemKey = draggedProblemKey,
                             hoveredInsertionTarget = hoveredInsertionTarget,
                             query = query,
@@ -686,7 +703,7 @@ private fun SetActionMenu(
 private fun ProblemSetTree(
     problemSet: ProblemSetState,
     selectedProblemSetId: String,
-    selectedProblemTitle: String,
+    selectedProblemId: String,
     draggedProblemKey: String?,
     hoveredInsertionTarget: InsertionTarget?,
     query: String,
@@ -695,21 +712,30 @@ private fun ProblemSetTree(
     onProblemSetSelected: (String) -> Unit,
     onProblemSelected: (String, String) -> Unit,
     onDeleteSet: (String) -> Unit,
-    onSetBoundsChange: (String, Rect) -> Unit,
-    onProblemBoundsChange: (String, Rect) -> Unit,
+    onSetBoundsChange: (String, Rect?) -> Unit,
+    onProblemBoundsChange: (String, Rect?) -> Unit,
     onDragStart: (String, ProblemListItem, Offset, Offset, IntSize) -> Unit,
     onDragMove: (Offset) -> Unit,
     onDragEnd: () -> Unit
 ) {
     var expanded by remember(problemSet.id) { mutableStateOf(selectedProblemSetId == problemSet.id) }
-    val filteredProblems = problemSet.problems.filter { problem ->
+    val filteredProblems = problemSet.problems.mapIndexedNotNull { index, problem ->
         val matchesQuery = query.isBlank() || problem.title.contains(query.trim(), ignoreCase = true)
         val matchesFilter = when (problemFilter) {
             ProblemFilter.All -> true
             ProblemFilter.Open -> !problem.solved
             ProblemFilter.Solved -> problem.solved
         }
-        matchesQuery && matchesFilter
+        if (matchesQuery && matchesFilter) VisibleProblem(index, problem) else null
+    }
+    val insertionSlot = hoveredInsertionTarget
+        ?.takeIf { it.setId == problemSet.id }
+        ?.let { target -> filteredProblems.count { it.index < target.index } }
+
+    DisposableEffect(problemSet.id) {
+        onDispose {
+            onSetBoundsChange(problemSet.id, null)
+        }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -751,27 +777,27 @@ private fun ProblemSetTree(
             )
         }
         if (expanded) {
-            filteredProblems.forEachIndexed { index, problem ->
-                if (hoveredInsertionTarget?.setId == problemSet.id && hoveredInsertionTarget.index == index) {
-                    InsertionGap()
+            Column {
+                filteredProblems.forEachIndexed { slotIndex, visibleProblem ->
+                    InsertionGap(active = insertionSlot == slotIndex)
+                    key(visibleProblem.problem.id) {
+                        ProblemRow(
+                            problem = visibleProblem.problem,
+                            selected = selectedProblemSetId == problemSet.id && selectedProblemId == visibleProblem.problem.id,
+                            dragging = draggedProblemKey == "${problemSet.id}::${visibleProblem.problem.id}",
+                            boundsKey = "${problemSet.id}::${visibleProblem.problem.id}",
+                            onClick = { onProblemSelected(problemSet.id, visibleProblem.problem.id) },
+                            onBoundsChange = onProblemBoundsChange,
+                            onDragStart = { pointer, grabOffset, previewSizePx ->
+                                onDragStart(problemSet.id, visibleProblem.problem, pointer, grabOffset, previewSizePx)
+                            },
+                            onDragMove = onDragMove,
+                            onDragEnd = onDragEnd,
+                            modifier = Modifier.padding(start = 18.dp)
+                        )
+                    }
                 }
-                ProblemRow(
-                    problem = problem,
-                    selected = selectedProblemSetId == problemSet.id && selectedProblemTitle == problem.title,
-                    dragging = draggedProblemKey == "${problemSet.id}::${problem.title}",
-                    boundsKey = "${problemSet.id}::${problem.title}",
-                    onClick = { onProblemSelected(problemSet.id, problem.title) },
-                    onBoundsChange = onProblemBoundsChange,
-                    onDragStart = { pointer, grabOffset, previewSizePx ->
-                        onDragStart(problemSet.id, problem, pointer, grabOffset, previewSizePx)
-                    },
-                    onDragMove = onDragMove,
-                    onDragEnd = onDragEnd,
-                    modifier = Modifier.padding(start = 18.dp)
-                )
-            }
-            if (hoveredInsertionTarget?.setId == problemSet.id && hoveredInsertionTarget.index == filteredProblems.size) {
-                InsertionGap()
+                InsertionGap(active = insertionSlot == filteredProblems.size)
             }
         }
     }
@@ -826,7 +852,7 @@ private fun ProblemRow(
     dragging: Boolean,
     boundsKey: String,
     onClick: () -> Unit,
-    onBoundsChange: (String, Rect) -> Unit,
+    onBoundsChange: (String, Rect?) -> Unit,
     onDragStart: (Offset, Offset, IntSize) -> Unit,
     onDragMove: (Offset) -> Unit,
     onDragEnd: () -> Unit,
@@ -836,17 +862,44 @@ private fun ProblemRow(
     val borderColor = if (selected) AccentBlue.copy(alpha = 0.24f) else Color.Transparent
     var rowOrigin by remember { mutableStateOf(Offset.Zero) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
+    var contentHeightPx by remember { mutableStateOf(0) }
     var handleOrigin by remember { mutableStateOf(Offset.Zero) }
+    val density = LocalDensity.current
+    val rowAlpha by animateFloatAsState(
+        targetValue = if (dragging) 0f else 1f,
+        animationSpec = spring(stiffness = 550f, dampingRatio = 0.85f),
+        label = "problemRowAlpha"
+    )
+    val collapsedHeight by animateDpAsState(
+        targetValue = if (dragging) 0.dp else with(density) { contentHeightPx.toDp() },
+        animationSpec = spring(stiffness = 550f, dampingRatio = 0.85f),
+        label = "problemRowHeight"
+    )
 
-    Column(modifier = modifier) {
+    DisposableEffect(boundsKey, dragging) {
+        if (dragging) {
+            onBoundsChange(boundsKey, null)
+        }
+        onDispose {
+            onBoundsChange(boundsKey, null)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .then(if (dragging && contentHeightPx > 0) Modifier.height(collapsedHeight) else Modifier)
+            .alpha(rowAlpha)
+            .clipToBounds()
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .alpha(if (dragging) 0f else 1f)
                 .onGloballyPositioned { coordinates ->
                     rowOrigin = coordinates.boundsInRoot().topLeft
-                    onBoundsChange(boundsKey, coordinates.boundsInRoot())
+                    if (!dragging) {
+                        onBoundsChange(boundsKey, coordinates.boundsInRoot())
+                    }
                 }
                 .onSizeChanged { rowSize = it }
                 .clip(RoundedCornerShape(12.dp))
@@ -868,7 +921,7 @@ private fun ProblemRow(
                         rowSize
                     )
                 },
-                onDragMove = { pointer -> onDragMove(handleOrigin + pointer) },
+                onDragMove = onDragMove,
                 onPositioned = { handleOrigin = it },
                 onDragEnd = onDragEnd
             )
@@ -876,25 +929,47 @@ private fun ProblemRow(
         HorizontalDivider(
             thickness = 1.dp,
             color = DividerColor,
-            modifier = Modifier.padding(horizontal = 4.dp)
+            modifier = Modifier
+                .padding(horizontal = 4.dp)
+                .onSizeChanged { dividerSize ->
+                    val totalHeight = rowSize.height + dividerSize.height
+                    if (totalHeight > 0) {
+                        contentHeightPx = totalHeight
+                    }
+                }
         )
     }
 }
 
 @Composable
-private fun InsertionGap() {
+private fun InsertionGap(active: Boolean) {
+    val gapHeight by animateDpAsState(
+        targetValue = if (active) 18.dp else 0.dp,
+        animationSpec = spring(stiffness = 500f, dampingRatio = 0.82f),
+        label = "insertionGapHeight"
+    )
+    val lineHeight by animateDpAsState(
+        targetValue = if (active) 2.dp else 0.dp,
+        animationSpec = spring(stiffness = 500f, dampingRatio = 0.82f),
+        label = "insertionGapLineHeight"
+    )
+    val lineAlpha by animateFloatAsState(
+        targetValue = if (active) 0.7f else 0f,
+        animationSpec = spring(stiffness = 500f, dampingRatio = 0.82f),
+        label = "insertionGapAlpha"
+    )
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 18.dp, end = 6.dp, top = 2.dp, bottom = 2.dp)
-            .height(14.dp),
+            .padding(start = 18.dp, end = 6.dp)
+            .height(gapHeight),
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(2.dp)
-                .background(AccentBlue.copy(alpha = 0.7f), RoundedCornerShape(999.dp))
+                .height(lineHeight)
+                .background(AccentBlue.copy(alpha = lineAlpha), RoundedCornerShape(999.dp))
         )
     }
 }
@@ -941,9 +1016,9 @@ private fun DragHandle(
                     onDragStart = onDragStart,
                     onDragEnd = onDragEnd,
                     onDragCancel = onDragEnd
-                ) { change, _ ->
+                ) { change, dragAmount ->
                     change.consume()
-                    onDragMove(change.position)
+                    onDragMove(dragAmount)
                 }
             }
     ) {
@@ -998,6 +1073,44 @@ private fun Rect.overlapsWith(other: Rect): Boolean {
         right > other.left &&
         top < other.bottom &&
         bottom > other.top
+}
+
+private data class VisibleProblem(
+    val index: Int,
+    val problem: ProblemListItem
+)
+
+private fun resolveProblemInsertionTarget(
+    entryKey: String,
+    pointer: Offset,
+    entryBounds: Rect,
+    folders: List<ProblemFolderState>
+): InsertionTarget? {
+    val setId = entryKey.substringBefore("::")
+    val problemId = entryKey.substringAfter("::", missingDelimiterValue = "")
+    val set = folders.flatMap { it.sets }.firstOrNull { it.id == setId } ?: return null
+    val rowIndex = set.problems.indexOfFirst { it.id == problemId }
+    if (rowIndex == -1) return null
+    val insertionIndex = if (pointer.y < entryBounds.center.y) rowIndex else rowIndex + 1
+    return InsertionTarget(setId, insertionIndex)
+}
+
+private fun resolveSetInsertionTarget(
+    setId: String,
+    folders: List<ProblemFolderState>,
+    problemBounds: Map<String, Rect>
+): InsertionTarget? {
+    val set = folders.flatMap { it.sets }.firstOrNull { it.id == setId } ?: return null
+    val visibleRowsForSet = problemBounds.entries
+        .filter { it.key.substringBefore("::") == setId }
+        .sortedBy { it.value.top }
+    val insertionIndex = visibleRowsForSet.lastOrNull()?.let { entry ->
+        val problemId = entry.key.substringAfter("::", missingDelimiterValue = "")
+        set.problems.indexOfFirst { it.id == problemId }
+            .takeIf { it >= 0 }
+            ?.plus(1)
+    } ?: set.problems.size
+    return InsertionTarget(setId, insertionIndex.coerceIn(0, set.problems.size))
 }
 
 @Composable

@@ -26,12 +26,12 @@ internal fun WorkspacePane(
     onInputModeChange: (WorkspaceInputMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var pythonCode by remember(problem.title) { mutableStateOf(problem.starterCode) }
-    val strokes = remember(problem.title) { mutableStateListOf<SketchStroke>() }
-    var activeStrokePoints by remember(problem.title) { mutableStateOf<List<Offset>>(emptyList()) }
-    var activeColor by remember(problem.title) { mutableStateOf(AccentBlue) }
-    var sketchTool by remember(problem.title) { mutableStateOf(SketchTool.Pen) }
-    var eraserSize by remember(problem.title) { mutableStateOf(EraserSize.Medium) }
+    var pythonCode by remember(problem.id) { mutableStateOf(problem.starterCode) }
+    val strokes = remember(problem.id) { mutableStateListOf<SketchStroke>() }
+    var activeStrokePoints by remember(problem.id) { mutableStateOf<List<Offset>>(emptyList()) }
+    var activeColor by remember(problem.id) { mutableStateOf(AccentBlue) }
+    var sketchTool by remember(problem.id) { mutableStateOf(SketchTool.Pen) }
+    var eraserSize by remember(problem.id) { mutableStateOf(EraserSize.Medium) }
 
     Surface(
         modifier = modifier,
