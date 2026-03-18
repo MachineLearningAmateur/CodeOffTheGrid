@@ -1,11 +1,11 @@
 # StandaloneLeetCode Android Design Plan
 
 ## Status
-- Draft v2
+- Draft v3
 - Last updated: 2026-03-18
 - Primary target: Android tablet
 - Secondary target: iOS later, not part of v1 architecture constraints
-- Current project state: Android Studio project created with Kotlin, Jetpack Compose, and `minSdk = 29`
+- Current project state: Kotlin/Compose Android prototype with a working landscape UI shell and local mock interactions
 
 ## 1. Product Summary
 
@@ -15,17 +15,38 @@ The first release is optimized for a Samsung Galaxy Tab S7 class device, with a 
 
 ## 2. Current State
 
-The repository now contains an initial Android Studio project scaffold:
+The repository now contains an Android Studio project plus a substantial interactive prototype:
 - Kotlin-based Android app
 - Jetpack Compose enabled
 - `minSdk = 29`
-- default single-activity template
+- package/application ID set to `dev.kaixinguo.standaloneleetcode`
+- custom dark tablet-first theme
+- landscape three-pane workspace implemented as a mock UI
+- project initialized in Git and pushed to GitHub
 
-This means the project has moved from pure brainstorming into early implementation setup. The next design work should focus on:
-- finalizing the package name
-- replacing template content with the first real app shell
-- defining screen mockups and navigation structure
-- deciding the local problem schema before data-layer work starts
+The project is no longer in the "blank scaffold" stage. It now has a serious UI prototype, but it is still mostly presentation-layer code with mock state.
+
+### What Already Exists in the Prototype
+- collapsible left sidebar with `Problems`, `Ask AI`, and `Settings`
+- problem search and local filter chips: `All`, `Open`, `Solved`
+- solved badges in the problem list
+- bounded swipe-left reveal for deleting problems from the local mock list
+- center `Workspace` pane with `Keyboard` and `Sketch` modes sharing one surface
+- Python-only editable text area with syntax highlighting
+- sketch overlay with draw, eraser, size controls, and color controls
+- right support pane with `Problem`, `Custom`, and `Results`
+- always-visible `Submit` action with mock loading state
+- editable custom test block for local unit tests
+- staged hint reveal in the `Problem` tab
+
+### What Is Still Mocked
+- no Room database
+- no real navigation stack
+- no persistent drafts, notes, or progress
+- no real problem schema or import pipeline
+- no embedded Python runtime
+- no real custom test execution or submission logic
+- no AI integration beyond placeholder UI
 
 ## 3. Goals
 
@@ -112,14 +133,14 @@ This means the project has moved from pure brainstorming into early implementati
 
 ## 8. Current Layout Direction
 
-The current target layout is a tablet-first three-pane workspace in landscape mode.
+The current implemented target is a tablet-first three-pane workspace in landscape mode.
 
 Primary landscape layout:
-- Left pane: problem list, filters, search, tags, solve status
-- Center pane: problem statement, examples, constraints, and notes
-- Right pane: Python editor, test case input, run controls, and output
+- Left pane: collapsible problem browser with search, status filters, solved flags, and delete reveal
+- Center pane: primary workspace for Python typing and sketch annotation on the same surface
+- Right pane: support column for problem reference, custom tests, results, hints, and submit actions
 
-This layout is intended to keep the full study workflow visible without constant screen switching.
+This layout is intended to keep the full study workflow visible without constant screen switching while still allowing a focus mode by collapsing the left pane.
 
 ## 8.1 Why This Layout
 - It matches the strengths of a tablet-sized display.
@@ -135,29 +156,16 @@ Portrait or narrow widths:
 
 ## 8.3 Planned Primary Screens
 
-### Library Screen
-- Search bar
-- Difficulty and tag filters
-- Problem list with status indicators
-- Quick access to recent and bookmarked problems
+### Current Landscape Prototype
+- collapsible sidebar with problem browsing and basic filtering
+- shared code/sketch workspace
+- support pane with problem details, custom tests, and result state
 
-### Problem Detail Screen
-- Problem statement
-- Examples and constraints
-- Tags and metadata
-- Notes panel
-
-### Workspace Screen
-- Python editor
-- Saved draft state
-- Custom test case input
-- Run button and output panel
-
-### Settings and Import Screen
-- Import local problem bundles
-- Manage local data
-- Future export/backup actions
-- Runtime and editor preferences
+### Planned Real Screens After Prototype Phase
+- library/data-backed problem browser
+- problem detail and notes flow
+- workspace with persisted draft and execution state
+- settings/import/export screen
 
 ## 8.4 Interaction Principles
 - Fast local navigation
@@ -379,38 +387,41 @@ The app should remain useful even if external imports do not exist.
 
 Based on the current state of the repository, the next priorities are:
 
-1. Package and application ID renamed to `dev.kaixinguo.standaloneleetcode`; keep future modules aligned with this namespace.
-2. Create screen mockups for the tablet layout.
-3. Replace the template `Hello Android` content with a real app shell.
-4. Define the local problem JSON schema.
-5. Start the Room data model and repository layer.
+1. Refactor the large prototype file into smaller UI/workspace files before adding real data flow.
+2. Define the local problem JSON schema and seed format.
+3. Start the Room data model and repository layer.
+4. Replace hardcoded prototype state with repository-backed screen state.
+5. Introduce real draft, progress, and custom-test persistence.
 
 ## 16. MVP Milestones
 
-## Milestone 1: Foundation
-- Create Android project
-- Set up Compose, Room, navigation, and DI
-- Define domain models and repository interfaces
+## Milestone 1: UI Prototype Stabilization
+- split the monolithic `LandscapeWorkspaceScreen.kt`
+- keep the current landscape behavior intact during refactor
+- establish screen-level state holders that can later connect to repositories
 
-## Milestone 2: Problem Library
-- Build problem entities and local database
-- Add seeded data or JSON import
-- Implement library browsing, search, and filters
+## Milestone 2: Local Problem Data
+- define `Problem`, `Example`, `CustomTestCase`, `Draft`, and `ProgressState` storage models
+- build Room entities and DAOs
+- seed the database from local JSON or bundled starter data
+- replace hardcoded problem lists with data-backed state
 
-## Milestone 3: Problem Detail and Notes
-- Show statement, examples, and metadata
-- Add note-taking and status tracking
+## Milestone 3: Persistence Layer
+- persist selected problem, solved state, draft code, custom tests, and hint progress
+- save problem deletion/archive behavior as real data actions
+- add repository interfaces and use cases around problem browsing
 
-## Milestone 4: Python Workspace
-- Integrate embedded Python runtime
-- Add editor, draft saving, and test runner
-- Capture execution results and errors
+## Milestone 4: Execution Layer
+- integrate embedded Python runtime
+- run local custom tests from the `Custom` tab
+- capture output, failures, and runtime errors into the `Results` pane
+- implement real submit semantics for local validation/saved submissions
 
-## Milestone 5: Tablet UX Polish
-- Multi-pane layout improvements
-- State restoration
-- Performance tuning
-- Import/export groundwork
+## Milestone 5: Notes and Workflow Completion
+- add per-problem notes and review state
+- store accepted submissions and use them to drive solved flags
+- restore workspace state when reopening the app
+- tighten tablet UX polish and prepare for portrait/narrow handling
 
 ## 17. Risks
 
@@ -435,20 +446,46 @@ Based on the current state of the repository, the next priorities are:
 - Which embedded Python approach should be used on Android?
 - What exact local problem JSON schema should be supported?
 - Should execution target function-based problems only in v1?
-- Does the MVP need syntax highlighting immediately, or can the first editor be plain text with basic indentation support?
-- Should the app support backup/export in the first release or only import?
-- What should the final package name and application ID be?
+- Should deletion really remove a problem from the local repository, or should it archive/hide it?
+- How should custom test cases be structured in the UI: text block, form rows, or both?
+- Should notes live in the right pane or as a separate view in the first MVP?
+- Should the first runtime support only deterministic local validation, or also ad hoc input/output runs?
 
 ## 19. Recommended First Build Order
 
-1. Define the local problem schema.
-2. Build the Room data model and repository layer.
-3. Create the tablet library and detail UI.
-4. Add drafts, notes, and progress persistence.
-5. Integrate the Python runner.
-6. Polish execution UX and error handling.
-7. Evaluate whether local AI is worth a phase 2 prototype.
+1. Refactor the prototype UI into smaller files.
+2. Define the local problem schema.
+3. Build the Room data model and repository layer.
+4. Replace hardcoded problem/sidebar/right-pane state with real stored state.
+5. Add draft, custom-test, and progress persistence.
+6. Integrate the Python runner.
+7. Implement real results/submission flow and error handling.
+8. Evaluate whether local AI is worth a phase 2 prototype.
 
 ## 20. Final Recommendation
 
 The correct v1 strategy is a native Android, offline-first tablet app with a strong local repository model and an embedded Python execution layer. The app should be useful without internet, without AI, and without cross-platform support. If that foundation is solid, iOS and local AI can be added later behind stable service boundaries rather than forcing premature compromise into the first architecture.
+
+## 21. MVP Review
+
+### Already Strong
+- the landscape UX direction is now concrete instead of speculative
+- the center workspace model is clear: Python typing and sketching share one main surface
+- the right pane has a sensible split between problem reference, custom tests, and results
+- solved status and filtering are already represented in the UI
+
+### Biggest Gaps Before MVP
+- the prototype is still largely hardcoded and lives in one oversized UI file
+- there is no real persistence layer yet
+- there is no actual Python execution path
+- solved state is visual only and not derived from real submissions
+- notes, import, and schema-driven problem content do not exist yet
+
+### Recommended Next MVP Slice
+- refactor the UI file
+- define the local JSON/Room schema
+- load a seeded problem set from local data
+- persist draft code, solved state, and custom tests
+- wire the right pane to real stored problem data
+
+Once those are in place, the next true MVP gate is the embedded Python runner.

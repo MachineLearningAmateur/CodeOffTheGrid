@@ -15,12 +15,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -32,10 +34,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,7 +52,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -140,12 +146,14 @@ private val PythonKeywords = setOf(
 
 @Composable
 fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
-    val problems = listOf(
-        ProblemListItem(title = "Tree Traversal", active = true, solved = true),
-        ProblemListItem(title = "Two Sum", solved = true),
-        ProblemListItem(title = "Binary Search"),
-        ProblemListItem(title = "Longest Subsequence")
-    )
+    val problems = remember {
+        mutableStateListOf(
+            ProblemListItem(title = "Tree Traversal", active = true, solved = true),
+            ProblemListItem(title = "Two Sum", solved = true),
+            ProblemListItem(title = "Binary Search"),
+            ProblemListItem(title = "Longest Subsequence")
+        )
+    }
     var sidebarMode by remember { mutableStateOf(SidebarMode.Problems) }
     var sidebarCollapsed by remember { mutableStateOf(false) }
     var workspaceInputMode by remember { mutableStateOf(WorkspaceInputMode.Keyboard) }
@@ -171,6 +179,7 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
         ) {
             SidebarPane(
                 problems = problems,
+                onDeleteProblem = { problem -> problems.remove(problem) },
                 selectedMode = sidebarMode,
                 onModeSelected = { sidebarMode = it },
                 collapsed = sidebarCollapsed,
@@ -198,6 +207,7 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun SidebarPane(
     problems: List<ProblemListItem>,
+    onDeleteProblem: (ProblemListItem) -> Unit,
     selectedMode: SidebarMode,
     onModeSelected: (SidebarMode) -> Unit,
     collapsed: Boolean,
@@ -249,7 +259,10 @@ private fun SidebarPane(
                 )
 
                 when (selectedMode) {
-                    SidebarMode.Problems -> ProblemsSidebarContent(problems = problems)
+                    SidebarMode.Problems -> ProblemsSidebarContent(
+                        problems = problems,
+                        onDeleteProblem = onDeleteProblem
+                    )
                     SidebarMode.AskAi -> AskAiSidebarContent()
                     SidebarMode.Settings -> SettingsSidebarContent()
                 }
@@ -353,9 +366,13 @@ private fun SidebarModeSelector(
 }
 
 @Composable
-private fun ProblemsSidebarContent(problems: List<ProblemListItem>) {
+private fun ProblemsSidebarContent(
+    problems: List<ProblemListItem>,
+    onDeleteProblem: (ProblemListItem) -> Unit
+) {
     var query by remember { mutableStateOf("") }
     var problemFilter by remember { mutableStateOf(ProblemFilter.All) }
+    var openProblemTitle by remember { mutableStateOf<String?>(null) }
     val filteredProblems = remember(problems, query, problemFilter) {
         problems.filter { problem ->
             val matchesQuery = query.isBlank() || problem.title.contains(query.trim(), ignoreCase = true)
@@ -415,8 +432,23 @@ private fun ProblemsSidebarContent(problems: List<ProblemListItem>) {
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        items(filteredProblems) { problem ->
-            ProblemRow(problem)
+        items(
+            items = filteredProblems,
+            key = { it.title }
+        ) { problem ->
+            ProblemRow(
+                problem = problem,
+                isOpen = openProblemTitle == problem.title,
+                onOpenChange = { isOpen ->
+                    openProblemTitle = if (isOpen) problem.title else if (openProblemTitle == problem.title) null else openProblemTitle
+                },
+                onDelete = {
+                    if (openProblemTitle == problem.title) {
+                        openProblemTitle = null
+                    }
+                    onDeleteProblem(problem)
+                }
+            )
         }
     }
 }
@@ -464,39 +496,104 @@ private fun ColumnScope.SettingsSidebarContent() {
 }
 
 @Composable
-private fun ProblemRow(problem: ProblemListItem) {
-    val background = if (problem.active) CardBackground else Color.Transparent
+private fun ProblemRow(
+    problem: ProblemListItem,
+    isOpen: Boolean,
+    onOpenChange: (Boolean) -> Unit,
+    onDelete: () -> Unit
+) {
+    val background = if (problem.active) CardBackground else CardBackgroundAlt
     val borderColor = if (problem.active) AccentBlue.copy(alpha = 0.24f) else Color.Transparent
+    val deleteButtonWidth = 88.dp
+    val deleteRevealWidth = 108.dp
+    val deleteRevealWidthPx = with(LocalDensity.current) { deleteRevealWidth.toPx() }
+    var targetOffsetX by remember(problem.title) { mutableStateOf(0f) }
+    val animatedOffsetX by animateFloatAsState(
+        targetValue = targetOffsetX,
+        animationSpec = spring(),
+        label = "problemRowOffset"
+    )
+    val revealDelete = animatedOffsetX < -6f
+
+    LaunchedEffect(isOpen, deleteRevealWidthPx) {
+        targetOffsetX = if (isOpen) -deleteRevealWidthPx else 0f
+    }
 
     Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(background)
-                .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = problem.title,
-                color = TextPrimary,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
-            )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(background)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = AccentRed.copy(alpha = if (revealDelete) 0.2f else 0.12f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .width(deleteButtonWidth)
+                        .clickable(enabled = revealDelete) {
+                            onOpenChange(false)
+                            onDelete()
+                        }
+                ) {
+                    Box(
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Delete",
+                            color = AccentRed.copy(alpha = if (revealDelete) 1f else 0.55f),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset { IntOffset(animatedOffsetX.toInt(), 0) }
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(background)
+                    .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                    .pointerInput(problem.title) {
+                        detectHorizontalDragGestures(
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                targetOffsetX = (targetOffsetX + dragAmount).coerceIn(-deleteRevealWidthPx, 0f)
+                            },
+                            onDragEnd = {
+                                val shouldOpen = targetOffsetX <= -(deleteRevealWidthPx * 0.5f)
+                                onOpenChange(shouldOpen)
+                                targetOffsetX = if (shouldOpen) {
+                                    -deleteRevealWidthPx
+                                } else {
+                                    0f
+                                }
+                            }
+                        )
+                    }
+                    .padding(horizontal = 14.dp, vertical = 14.dp)
             ) {
-                if (problem.solved) {
-                    SolvedFlag()
-                }
-                if (!problem.active) {
-                    Text(
-                        text = "...",
-                        color = TextMuted,
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                Text(
+                    text = problem.title,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (problem.solved) {
+                        SolvedFlag()
+                    }
                 }
             }
         }
