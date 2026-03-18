@@ -36,12 +36,13 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ProblemPane(
     problem: ProblemListItem,
+    customTestCode: String,
+    onCustomTestCodeChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(SupportTab.Problem) }
     var activeJobLabel by remember { mutableStateOf<String?>(null) }
     var revealedHintCount by remember { mutableStateOf(0) }
-    var customTestCode by remember(problem.id) { mutableStateOf(problem.customTests) }
     var resultTitle by remember { mutableStateOf("Ready") }
     var resultMessage by remember { mutableStateOf("Run or submit your solution to see validation details here.") }
     var resultAccent by remember { mutableStateOf(TextSecondary) }
@@ -237,7 +238,7 @@ internal fun ProblemPane(
                         Spacer(modifier = Modifier.height(12.dp))
                         EditableSupportTextBlock(
                             value = customTestCode,
-                            onValueChange = { customTestCode = it },
+                            onValueChange = onCustomTestCodeChange,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

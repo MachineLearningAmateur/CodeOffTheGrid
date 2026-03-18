@@ -82,6 +82,13 @@ internal data class SketchStroke(
     val color: Color
 )
 
+internal data class ProblemWorkspaceDocument(
+    val problemId: String,
+    val draftCode: String,
+    val customTests: String,
+    val sketches: List<SketchStroke>
+)
+
 internal enum class ArrowDirection(val glyph: String) {
     Expand(">"),
     Collapse("<")

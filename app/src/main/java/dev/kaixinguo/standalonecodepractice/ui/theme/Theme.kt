@@ -21,7 +21,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun StandaloneLeetCodeTheme(
+fun StandaloneCodePracticeTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(

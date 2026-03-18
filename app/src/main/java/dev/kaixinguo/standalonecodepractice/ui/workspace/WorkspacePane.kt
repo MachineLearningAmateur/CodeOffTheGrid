@@ -4,9 +4,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,12 +22,14 @@ import dev.kaixinguo.standalonecodepractice.ui.theme.PaneBackground
 @Composable
 internal fun WorkspacePane(
     problem: ProblemListItem,
+    draftCode: String,
+    sketchStrokes: SnapshotStateList<SketchStroke>,
+    onDraftCodeChange: (String) -> Unit,
+    onSketchesChange: (List<SketchStroke>) -> Unit,
     inputMode: WorkspaceInputMode,
     onInputModeChange: (WorkspaceInputMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var pythonCode by remember(problem.id) { mutableStateOf(problem.starterCode) }
-    val strokes = remember(problem.id) { mutableStateListOf<SketchStroke>() }
     var activeStrokePoints by remember(problem.id) { mutableStateOf<List<Offset>>(emptyList()) }
     var activeColor by remember(problem.id) { mutableStateOf(AccentBlue) }
     var sketchTool by remember(problem.id) { mutableStateOf(SketchTool.Pen) }
@@ -101,7 +103,8 @@ internal fun WorkspacePane(
                                 }
                             }
                             PlainActionChip("Clear") {
-                                strokes.clear()
+                                sketchStrokes.clear()
+                                onSketchesChange(emptyList())
                                 activeStrokePoints = emptyList()
                             }
                         }
@@ -110,9 +113,10 @@ internal fun WorkspacePane(
             ) {
                 UnifiedWorkspaceSurface(
                     inputMode = inputMode,
-                    pythonCode = pythonCode,
-                    onPythonCodeChange = { pythonCode = it },
-                    strokes = strokes,
+                    pythonCode = draftCode,
+                    onPythonCodeChange = onDraftCodeChange,
+                    strokes = sketchStrokes,
+                    onStrokesChange = onSketchesChange,
                     activeStrokePoints = activeStrokePoints,
                     onActiveStrokePointsChange = { activeStrokePoints = it },
                     activeColor = activeColor,

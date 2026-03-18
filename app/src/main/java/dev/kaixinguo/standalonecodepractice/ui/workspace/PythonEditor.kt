@@ -68,6 +68,7 @@ internal fun UnifiedWorkspaceSurface(
     pythonCode: String,
     onPythonCodeChange: (String) -> Unit,
     strokes: MutableList<SketchStroke>,
+    onStrokesChange: (List<SketchStroke>) -> Unit,
     activeStrokePoints: List<Offset>,
     onActiveStrokePointsChange: (List<Offset>) -> Unit,
     activeColor: Color,
@@ -93,11 +94,13 @@ internal fun UnifiedWorkspaceSurface(
                     } else {
                         eraserCursor = offset
                         eraseAt(strokes, offset, eraserSize.radius)
+                        onStrokesChange(strokes.toList())
                     }
                 },
                 onDragEnd = {
                     if (sketchTool == SketchTool.Pen && currentStroke.size > 1) {
                         strokes.add(SketchStroke(currentStroke.toList(), activeStrokeColor))
+                        onStrokesChange(strokes.toList())
                     }
                     currentStroke = mutableListOf()
                     eraserCursor = null
@@ -116,6 +119,7 @@ internal fun UnifiedWorkspaceSurface(
                 } else {
                     eraserCursor = change.position
                     eraseAt(strokes, change.position, eraserSize.radius)
+                    onStrokesChange(strokes.toList())
                 }
             }
         }

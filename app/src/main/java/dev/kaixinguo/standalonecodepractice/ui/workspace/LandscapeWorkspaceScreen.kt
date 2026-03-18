@@ -10,11 +10,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.kaixinguo.standalonecodepractice.data.WorkspaceDocumentRepository
 import dev.kaixinguo.standalonecodepractice.ui.theme.AppBackground
-import dev.kaixinguo.standalonecodepractice.ui.theme.StandaloneLeetCodeTheme
+import dev.kaixinguo.standalonecodepractice.ui.theme.StandaloneCodePracticeTheme
+import kotlinx.coroutines.launch
 
 @Composable
-fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
+internal fun LandscapeWorkspaceScreen(
+    workspaceDocumentRepository: WorkspaceDocumentRepository,
+    modifier: Modifier = Modifier
+) {
     val folders = remember {
         mutableStateListOf<ProblemFolderState>().apply {
             addAll(sampleFolders())
@@ -40,6 +45,10 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
     var sidebarMode by remember { mutableStateOf(SidebarMode.Problems) }
     var sidebarCollapsed by remember { mutableStateOf(false) }
     var workspaceInputMode by remember { mutableStateOf(WorkspaceInputMode.Keyboard) }
+    val sketchStrokes = remember { mutableStateListOf<SketchStroke>() }
+    var currentDraftCode by remember { mutableStateOf("") }
+    var currentCustomTests by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
     val sidebarWidth by animateDpAsState(
         targetValue = if (sidebarCollapsed) 84.dp else 288.dp,
         animationSpec = spring(),
@@ -54,6 +63,24 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
         ?.firstOrNull { it.id == selectedProblemId }
         ?: selectedProblemSet?.problems?.firstOrNull()
         ?: allSets.flatMap { it.problems }.firstOrNull()
+
+    LaunchedEffect(selectedProblem?.id) {
+        if (selectedProblem != null) {
+            currentDraftCode = selectedProblem.starterCode
+            currentCustomTests = selectedProblem.customTests
+            sketchStrokes.clear()
+
+            val document = workspaceDocumentRepository.loadDocument(selectedProblem)
+            currentDraftCode = document.draftCode
+            currentCustomTests = document.customTests
+            sketchStrokes.clear()
+            sketchStrokes.addAll(document.sketches)
+        } else {
+            currentDraftCode = ""
+            currentCustomTests = ""
+            sketchStrokes.clear()
+        }
+    }
 
     Box(
         modifier = modifier
@@ -203,6 +230,37 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
             if (selectedProblem != null) {
                 WorkspacePane(
                     problem = selectedProblem,
+                    draftCode = currentDraftCode,
+                    sketchStrokes = sketchStrokes,
+                    onDraftCodeChange = { updatedCode ->
+                        currentDraftCode = updatedCode
+                        val problemId = selectedProblem.id
+                        val customTests = currentCustomTests
+                        val sketches = sketchStrokes.toList()
+                        scope.launch {
+                            workspaceDocumentRepository.saveDocument(
+                                problemId = problemId,
+                                draftCode = updatedCode,
+                                customTests = customTests,
+                                sketches = sketches
+                            )
+                        }
+                    },
+                    onSketchesChange = { updatedSketches ->
+                        sketchStrokes.clear()
+                        sketchStrokes.addAll(updatedSketches)
+                        val problemId = selectedProblem.id
+                        val draftCode = currentDraftCode
+                        val customTests = currentCustomTests
+                        scope.launch {
+                            workspaceDocumentRepository.saveDocument(
+                                problemId = problemId,
+                                draftCode = draftCode,
+                                customTests = customTests,
+                                sketches = updatedSketches
+                            )
+                        }
+                    },
                     inputMode = workspaceInputMode,
                     onInputModeChange = { workspaceInputMode = it },
                     modifier = Modifier
@@ -211,6 +269,21 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
                 )
                 ProblemPane(
                     problem = selectedProblem,
+                    customTestCode = currentCustomTests,
+                    onCustomTestCodeChange = { updatedCustomTests ->
+                        currentCustomTests = updatedCustomTests
+                        val problemId = selectedProblem.id
+                        val draftCode = currentDraftCode
+                        val sketches = sketchStrokes.toList()
+                        scope.launch {
+                            workspaceDocumentRepository.saveDocument(
+                                problemId = problemId,
+                                draftCode = draftCode,
+                                customTests = updatedCustomTests,
+                                sketches = sketches
+                            )
+                        }
+                    },
                     modifier = Modifier
                         .width(356.dp)
                         .fillMaxHeight()
@@ -223,12 +296,15 @@ fun LandscapeWorkspaceScreen(modifier: Modifier = Modifier) {
 private fun sampleFolders(): List<ProblemFolderState> {
     return listOf(
         ProblemFolderState(
+            id = "folder-interview-prep",
             title = "Interview Prep",
             sets = mutableStateListOf(
                 ProblemSetState(
+                    id = "set-trees",
                     title = "Trees",
                     problems = mutableStateListOf(
                         ProblemListItem(
+                            id = "problem-tree-traversal",
                             title = "Tree Traversal",
                             active = true,
                             solved = true,
@@ -263,6 +339,7 @@ private fun sampleFolders(): List<ProblemFolderState> {
                             )
                         ),
                         ProblemListItem(
+                            id = "problem-path-sum",
                             title = "Path Sum",
                             solved = true,
                             summary = "Determine whether the tree has any root-to-leaf path whose values sum to a target.",
@@ -294,6 +371,7 @@ private fun sampleFolders(): List<ProblemFolderState> {
                             )
                         ),
                         ProblemListItem(
+                            id = "problem-lowest-common-ancestor",
                             title = "Lowest Common Ancestor",
                             summary = "Find the lowest node in a binary tree that has both targets in its subtree.",
                             exampleInput = "root = [3,5,1,6,2,0,8,null,null,7,4], p = 5, q = 1",
@@ -325,9 +403,11 @@ private fun sampleFolders(): List<ProblemFolderState> {
                     )
                 ),
                 ProblemSetState(
+                    id = "set-arrays",
                     title = "Arrays",
                     problems = mutableStateListOf(
                         ProblemListItem(
+                            id = "problem-two-sum",
                             title = "Two Sum",
                             solved = true,
                             summary = "Given an array of integers and a target, return the indices of the two numbers that add up to the target.",
@@ -357,6 +437,7 @@ private fun sampleFolders(): List<ProblemFolderState> {
                             )
                         ),
                         ProblemListItem(
+                            id = "problem-product-except-self",
                             title = "Product Except Self",
                             summary = "Build an output array where each position contains the product of all other elements.",
                             exampleInput = "nums = [1, 2, 3, 4]",
@@ -391,12 +472,15 @@ private fun sampleFolders(): List<ProblemFolderState> {
             )
         ),
         ProblemFolderState(
+            id = "folder-graph-study",
             title = "Graph Study",
             sets = mutableStateListOf(
                 ProblemSetState(
+                    id = "set-graphs",
                     title = "Graphs",
                     problems = mutableStateListOf(
                         ProblemListItem(
+                            id = "problem-number-of-islands",
                             title = "Number of Islands",
                             summary = "Count the number of connected land masses in a 2D grid using graph traversal.",
                             exampleInput = "grid = [[1,1,0],[0,1,0],[1,0,1]]",
@@ -442,6 +526,7 @@ private fun sampleFolders(): List<ProblemFolderState> {
                             )
                         ),
                         ProblemListItem(
+                            id = "problem-course-schedule",
                             title = "Course Schedule",
                             summary = "Determine whether prerequisite dependencies contain a cycle.",
                             exampleInput = "numCourses = 2, prerequisites = [[1,0]]",
@@ -484,6 +569,7 @@ private fun sampleFolders(): List<ProblemFolderState> {
                             )
                         ),
                         ProblemListItem(
+                            id = "problem-clone-graph",
                             title = "Clone Graph",
                             solved = true,
                             summary = "Deep-copy an undirected graph starting from a given node.",
@@ -528,7 +614,14 @@ private fun sampleFolders(): List<ProblemFolderState> {
 @Preview(widthDp = 1280, heightDp = 800, showBackground = true)
 @Composable
 private fun LandscapeWorkspacePreview() {
-    StandaloneLeetCodeTheme {
-        LandscapeWorkspaceScreen()
+    StandaloneCodePracticeTheme {
+        LandscapeWorkspaceScreen(
+            workspaceDocumentRepository = WorkspaceDocumentRepository(
+                workspaceDocumentDao = object : dev.kaixinguo.standalonecodepractice.data.local.WorkspaceDocumentDao {
+                    override suspend fun getByProblemId(problemId: String) = null
+                    override suspend fun upsert(document: dev.kaixinguo.standalonecodepractice.data.local.WorkspaceDocumentEntity) = Unit
+                }
+            )
+        )
     }
 }
