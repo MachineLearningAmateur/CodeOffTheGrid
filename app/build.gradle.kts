@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.kaixinguo.standaloneleetcode"
+    namespace = "dev.kaixinguo.standalonecodepractice"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.kaixinguo.standaloneleetcode"
+        applicationId = "dev.kaixinguo.standalonecodepractice"
         minSdk = 29
         targetSdk = 36
         versionCode = 1
@@ -56,3 +56,4 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+

@@ -1,4 +1,4 @@
-package dev.kaixinguo.standaloneleetcode.ui.theme
+package dev.kaixinguo.standalonecodepractice.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
@@ -19,3 +19,4 @@ val AccentAmber = Color(0xFFE6B25A)
 val TextPrimary = Color(0xFFF3F5F8)
 val TextSecondary = Color(0xFFB5BECC)
 val TextMuted = Color(0xFF8892A3)
+

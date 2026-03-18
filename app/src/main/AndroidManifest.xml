@@ -12,7 +12,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.StandaloneLeetCode">
         <activity
-            android:name="dev.kaixinguo.standaloneleetcode.MainActivity"
+            android:name="dev.kaixinguo.standalonecodepractice.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.StandaloneLeetCode">
@@ -25,3 +25,4 @@
     </application>
 
 </manifest>
+

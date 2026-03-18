@@ -19,7 +19,7 @@ The repository now contains an Android Studio project plus a substantial interac
 - Kotlin-based Android app
 - Jetpack Compose enabled
 - `minSdk = 29`
-- package/application ID set to `dev.kaixinguo.standaloneleetcode`
+- package/application ID set to `dev.kaixinguo.standalonecodepractice`
 - custom dark tablet-first theme
 - landscape three-pane workspace implemented as a mock UI
 - project initialized in Git and pushed to GitHub
@@ -489,3 +489,4 @@ The correct v1 strategy is a native Android, offline-first tablet app with a str
 - wire the right pane to real stored problem data
 
 Once those are in place, the next true MVP gate is the embedded Python runner.
+

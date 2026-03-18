@@ -1,4 +1,4 @@
-package dev.kaixinguo.standaloneleetcode.ui.theme
+package dev.kaixinguo.standalonecodepractice.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -30,3 +30,4 @@ fun StandaloneLeetCodeTheme(
         content = content
     )
 }
+

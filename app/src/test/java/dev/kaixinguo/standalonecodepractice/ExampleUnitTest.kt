@@ -1,4 +1,4 @@
-package dev.kaixinguo.standaloneleetcode
+package dev.kaixinguo.standalonecodepractice
 
 import org.junit.Test
 
@@ -15,3 +15,4 @@ class ExampleUnitTest {
         assertEquals(4, 2 + 2)
     }
 }
+

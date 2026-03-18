@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Standalone LeetCode"
+rootProject.name = "StandaloneCodePractice"
 include(":app")
