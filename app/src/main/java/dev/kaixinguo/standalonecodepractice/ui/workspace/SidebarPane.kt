@@ -13,14 +13,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
@@ -41,6 +44,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -66,10 +70,13 @@ internal fun SidebarPane(
     onProblemSelected: (String, String) -> Unit,
     onDeleteProblem: (String, ProblemListItem) -> Unit,
     onCreateFolder: (String) -> Unit,
-    onCreateSet: (String) -> Unit,
+    onCreateSet: (String, String) -> Unit,
     onDeleteSet: (String) -> Unit,
     onDeleteFolder: (String) -> Unit,
     onMoveProblem: (String, String, ProblemListItem, Int) -> Unit,
+    onImportGitHubRepo: (String) -> Unit,
+    importInProgress: Boolean,
+    importFeedback: String?,
     selectedMode: SidebarMode,
     onModeSelected: (SidebarMode) -> Unit,
     collapsed: Boolean,
@@ -132,7 +139,10 @@ internal fun SidebarPane(
                         onCreateSet = onCreateSet,
                         onDeleteSet = onDeleteSet,
                         onDeleteFolder = onDeleteFolder,
-                        onMoveProblem = onMoveProblem
+                        onMoveProblem = onMoveProblem,
+                        onImportGitHubRepo = onImportGitHubRepo,
+                        importInProgress = importInProgress,
+                        importFeedback = importFeedback
                     )
                     SidebarMode.AskAi -> AskAiSidebarContent()
                     SidebarMode.Settings -> SettingsSidebarContent()
@@ -245,15 +255,20 @@ private fun ProblemsSidebarContent(
     onProblemSelected: (String, String) -> Unit,
     onDeleteProblem: (String, ProblemListItem) -> Unit,
     onCreateFolder: (String) -> Unit,
-    onCreateSet: (String) -> Unit,
+    onCreateSet: (String, String) -> Unit,
     onDeleteSet: (String) -> Unit,
     onDeleteFolder: (String) -> Unit,
-    onMoveProblem: (String, String, ProblemListItem, Int) -> Unit
+    onMoveProblem: (String, String, ProblemListItem, Int) -> Unit,
+    onImportGitHubRepo: (String) -> Unit,
+    importInProgress: Boolean,
+    importFeedback: String?
 ) {
     var query by remember { mutableStateOf("") }
     var problemFilter by remember { mutableStateOf(ProblemFilter.All) }
     var creatingFolder by remember { mutableStateOf(false) }
     var newFolderTitle by remember { mutableStateOf("") }
+    var importingRepo by remember { mutableStateOf(false) }
+    var importUrl by remember { mutableStateOf("") }
     var draggedProblem by remember { mutableStateOf<DraggedProblemState?>(null) }
     var hoveredSetId by remember { mutableStateOf<String?>(null) }
     var hoveredInsertionTarget by remember { mutableStateOf<InsertionTarget?>(null) }
@@ -262,6 +277,13 @@ private fun ProblemsSidebarContent(
     val problemBounds = remember { mutableStateMapOf<String, Rect>() }
     var trashBounds by remember { mutableStateOf<Rect?>(null) }
     val density = LocalDensity.current
+
+    LaunchedEffect(importFeedback, importInProgress) {
+        if (!importInProgress && importFeedback?.startsWith("Imported") == true) {
+            importUrl = ""
+            importingRepo = false
+        }
+    }
 
     CardBlock(title = null, modifier = Modifier.fillMaxWidth()) {
         BasicTextField(
@@ -500,12 +522,82 @@ private fun ProblemsSidebarContent(
                             creatingFolder = false
                         }
                     }
-                } else {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        PlainActionChip("New Folder") {
-                            creatingFolder = true
+                } else if (importingRepo) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        BasicTextField(
+                            value = importUrl,
+                            onValueChange = { importUrl = it },
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary),
+                            cursorBrush = SolidColor(AccentBlue),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("githubImportUrlField"),
+                            decorationBox = { innerTextField ->
+                                if (importUrl.isBlank()) {
+                                    Text(
+                                        text = "GitHub repo URL...",
+                                        color = TextMuted,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            PlainActionChip(
+                                label = if (importInProgress) "Importing..." else "Import",
+                                modifier = Modifier.testTag("githubImportSubmit")
+                            ) {
+                                val url = importUrl.trim()
+                                if (url.isNotEmpty() && !importInProgress) {
+                                    onImportGitHubRepo(url)
+                                }
+                            }
+                            PlainActionChip("Cancel") {
+                                importUrl = ""
+                                importingRepo = false
+                            }
                         }
                     }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PlainActionChip("New Folder") {
+                            importingRepo = false
+                            creatingFolder = true
+                        }
+                        PlainActionChip(
+                            label = "+ Repo",
+                            modifier = Modifier.testTag("githubImportOpen")
+                        ) {
+                            creatingFolder = false
+                            importingRepo = true
+                        }
+                    }
+                }
+                if (!importFeedback.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = importFeedback,
+                        color = if (importFeedback.startsWith("Imported")) AccentGreen else AccentRed,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag("githubImportFeedback")
+                    )
+                }
+                if (!creatingFolder && !importingRepo && importInProgress) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Importing repository...",
+                        color = AccentBlue,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }
@@ -545,7 +637,7 @@ private fun FolderTreeBlock(
     hoveredSetId: String?,
     onProblemSetSelected: (String) -> Unit,
     onProblemSelected: (String, String) -> Unit,
-    onCreateSet: (String) -> Unit,
+    onCreateSet: (String, String) -> Unit,
     onDeleteSet: (String) -> Unit,
     onDeleteFolder: (String) -> Unit,
     onSetBoundsChange: (String, Rect?) -> Unit,
@@ -581,7 +673,7 @@ private fun FolderTreeBlock(
                 )
             }
             FolderActionMenu(
-                onCreateSet = { onCreateSet(folder.id) },
+                onCreateSet = { title -> onCreateSet(folder.id, title) },
                 onDeleteFolder = { onDeleteFolder(folder.id) }
             )
         }
@@ -621,10 +713,13 @@ private fun FolderTreeBlock(
 
 @Composable
 private fun FolderActionMenu(
-    onCreateSet: () -> Unit,
+    onCreateSet: (String) -> Unit,
     onDeleteFolder: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
+    var creatingSet by remember { mutableStateOf(false) }
+    var newSetTitle by remember { mutableStateOf("") }
 
     Box {
         Surface(
@@ -648,18 +743,112 @@ private fun FolderActionMenu(
             DropdownMenuItem(
                 text = { Text("New Set") },
                 onClick = {
-                    onCreateSet()
+                    creatingSet = true
                     expanded = false
                 }
             )
             DropdownMenuItem(
                 text = { Text("Delete Folder") },
                 onClick = {
-                    onDeleteFolder()
+                    confirmingDelete = true
                     expanded = false
                 }
             )
         }
+    }
+
+    if (creatingSet) {
+        AlertDialog(
+            onDismissRequest = {
+                creatingSet = false
+                newSetTitle = ""
+            },
+            title = {
+                Text(
+                    text = "Create set",
+                    color = TextPrimary
+                )
+            },
+            text = {
+                BasicTextField(
+                    value = newSetTitle,
+                    onValueChange = { newSetTitle = it },
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary),
+                    cursorBrush = SolidColor(AccentBlue),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    decorationBox = { innerTextField ->
+                        if (newSetTitle.isBlank()) {
+                            Text(
+                                text = "Set name...",
+                                color = TextMuted,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val title = newSetTitle.trim()
+                        if (title.isNotEmpty()) {
+                            creatingSet = false
+                            newSetTitle = ""
+                            onCreateSet(title)
+                        }
+                    }
+                ) {
+                    Text("Create")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        creatingSet = false
+                        newSetTitle = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (confirmingDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = {
+                Text(
+                    text = "Delete folder?",
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "This will remove the folder and all of its sets from the sidebar.",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingDelete = false
+                        onDeleteFolder()
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { confirmingDelete = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -668,6 +857,7 @@ private fun SetActionMenu(
     onDeleteSet: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
 
     Box {
         Surface(
@@ -691,11 +881,46 @@ private fun SetActionMenu(
             DropdownMenuItem(
                 text = { Text("Delete Set") },
                 onClick = {
-                    onDeleteSet()
+                    confirmingDelete = true
                     expanded = false
                 }
             )
         }
+    }
+
+    if (confirmingDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmingDelete = false },
+            title = {
+                Text(
+                    text = "Delete set?",
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "This will remove the set and all of its problems from the sidebar.",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingDelete = false
+                        onDeleteSet()
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { confirmingDelete = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -827,11 +1052,11 @@ private fun ColumnScope.AskAiSidebarContent() {
 @Composable
 private fun ColumnScope.SettingsSidebarContent() {
     CardBlock(title = "Settings", modifier = Modifier.fillMaxWidth()) {
-        SettingLine("Problem imports", "Local JSON")
-        Spacer(modifier = Modifier.padding(6.dp))
         SettingLine("Runtime", "Embedded Python")
         Spacer(modifier = Modifier.padding(6.dp))
         SettingLine("Theme", "Dark tablet layout")
+        Spacer(modifier = Modifier.padding(6.dp))
+        SettingLine("Catalog source", "Local + GitHub imports")
     }
 
     CardBlock(title = "Later", modifier = Modifier.fillMaxWidth()) {

@@ -1,0 +1,1526 @@
+{
+  "version": 2,
+  "collection": {
+    "id": "github-dipjul-neetcode-150",
+    "title": "NeetCode 150",
+    "totalProblems": 150,
+    "fullContentProblems": 150,
+    "placeholderProblems": 0,
+    "sourceLabel": "NeetCode 150 Practice",
+    "sourceUrl": "https://neetcode.io/practice/practice/neetcode150"
+  },
+  "sets": [
+    {
+      "id": "github-dipjul-neetcode-150-set-1-arrays-hashing",
+      "title": "Arrays & Hashing",
+      "totalProblems": 9,
+      "fullContentProblems": 9,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-01-containsduplicate-md",
+          "title": "Contains Duplicate",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/duplicate-integer/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/contains-duplicate",
+          "leetcodeUrl": "https://leetcode.com/problems/contains-duplicate/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-02-validanagram-md",
+          "title": "Valid Anagram",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/is-anagram/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/valid-anagram",
+          "leetcodeUrl": "https://leetcode.com/problems/valid-anagram/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-03-twosum-md",
+          "title": "Two Sum",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/two-integer-sum/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/two-sum",
+          "leetcodeUrl": "https://leetcode.com/problems/two-sum/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-04-groupanagrams-md",
+          "title": "Group Anagrams",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/anagram-groups/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/group-anagrams",
+          "leetcodeUrl": "https://leetcode.com/problems/group-anagrams/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-05-topkelements-md",
+          "title": "Top K Frequent Elements",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/top-k-elements-in-list/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/top-k-frequent-elements",
+          "leetcodeUrl": "https://leetcode.com/problems/top-k-frequent-elements/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-08-encodeanddecodestrings-md",
+          "title": "Encode and Decode Strings",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/string-encode-and-decode/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/encode-and-decode-strings",
+          "leetcodeUrl": "https://leetcode.com/problems/encode-and-decode-strings/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-06-productofarrayexceptself-md",
+          "title": "Product of Array Except Self",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/products-of-array-discluding-self/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/product-of-array-except-self",
+          "leetcodeUrl": "https://leetcode.com/problems/product-of-array-except-self/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-07-validsodoku-md",
+          "title": "Valid Sudoku",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/valid-sudoku/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/valid-sudoku",
+          "leetcodeUrl": "https://leetcode.com/problems/valid-sudoku/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-01-arrays-hashing-09-longestconsecutivesequence-md",
+          "title": "Longest Consecutive Sequence",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/longest-consecutive-sequence/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/longest-consecutive-sequence",
+          "leetcodeUrl": "https://leetcode.com/problems/longest-consecutive-sequence/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-2-two-pointers",
+      "title": "Two Pointers",
+      "totalProblems": 5,
+      "fullContentProblems": 5,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-02-two-pointer-01-validpalindrome-md",
+          "title": "Valid Palindrome",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/is-palindrome/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/valid-palindrome",
+          "leetcodeUrl": "https://leetcode.com/problems/valid-palindrome/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-02-two-pointer-02-twosumii-md",
+          "title": "Two Sum II Input Array Is Sorted",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/two-integer-sum-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/two-sum-ii-input-array-is-sorted",
+          "leetcodeUrl": "https://leetcode.com/problems/two-sum-ii-input-array-is-sorted/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-02-two-pointer-03-3sum-md",
+          "title": "3Sum",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/three-integer-sum/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/3sum",
+          "leetcodeUrl": "https://leetcode.com/problems/3sum/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-02-two-pointer-04-containerwithmostwater-md",
+          "title": "Container With Most Water",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/max-water-container/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/container-with-most-water",
+          "leetcodeUrl": "https://leetcode.com/problems/container-with-most-water/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-02-two-pointer-05-trappingrainwater-md",
+          "title": "Trapping Rain Water",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/trapping-rain-water/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/trapping-rain-water",
+          "leetcodeUrl": "https://leetcode.com/problems/trapping-rain-water/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-3-sliding-window",
+      "title": "Sliding Window",
+      "totalProblems": 6,
+      "fullContentProblems": 6,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-03-sliding-window-01-besttimetobuy-sellstock-md",
+          "title": "Best Time to Buy And Sell Stock",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/buy-and-sell-crypto/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/best-time-to-buy-and-sell-stock",
+          "leetcodeUrl": "https://leetcode.com/problems/best-time-to-buy-and-sell-stock/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-03-sliding-window-02-longestsubstringwithoutrepeatingcharacters-md",
+          "title": "Longest Substring Without Repeating Characters",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/longest-substring-without-duplicates/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/longest-substring-without-repeating-characters",
+          "leetcodeUrl": "https://leetcode.com/problems/longest-substring-without-repeating-characters/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-03-sliding-window-03-longestrepeatingcharacterreplacement-md",
+          "title": "Longest Repeating Character Replacement",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/longest-repeating-substring-with-replacement/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/longest-repeating-character-replacement",
+          "leetcodeUrl": "https://leetcode.com/problems/longest-repeating-character-replacement/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-03-sliding-window-04-permutationinstring-md",
+          "title": "Permutation In String",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/permutation-string/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/permutation-in-string",
+          "leetcodeUrl": "https://leetcode.com/problems/permutation-in-string/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-03-sliding-window-05-minimumwindowsubstring-md",
+          "title": "Minimum Window Substring",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/minimum-window-with-characters/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/minimum-window-substring",
+          "leetcodeUrl": "https://leetcode.com/problems/minimum-window-substring/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-03-sliding-window-06-slidingwindowmaximum-md",
+          "title": "Sliding Window Maximum",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/sliding-window-maximum/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/sliding-window-maximum",
+          "leetcodeUrl": "https://leetcode.com/problems/sliding-window-maximum/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-4-stack",
+      "title": "Stack",
+      "totalProblems": 6,
+      "fullContentProblems": 6,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-04-stack-01-validparentheses-md",
+          "title": "Valid Parentheses",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/validate-parentheses/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/valid-parentheses",
+          "leetcodeUrl": "https://leetcode.com/problems/valid-parentheses/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-04-stack-02-minstack-md",
+          "title": "Min Stack",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/minimum-stack/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/min-stack",
+          "leetcodeUrl": "https://leetcode.com/problems/min-stack/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-04-stack-03-evaluatereversepolishnotation-md",
+          "title": "Evaluate Reverse Polish Notation",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/evaluate-reverse-polish-notation/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/evaluate-reverse-polish-notation",
+          "leetcodeUrl": "https://leetcode.com/problems/evaluate-reverse-polish-notation/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-04-stack-05-dailytemperatures-md",
+          "title": "Daily Temperatures",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/daily-temperatures/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/daily-temperatures",
+          "leetcodeUrl": "https://leetcode.com/problems/daily-temperatures/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-04-stack-06-carfleet-md",
+          "title": "Car Fleet",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/car-fleet/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/car-fleet",
+          "leetcodeUrl": "https://leetcode.com/problems/car-fleet/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-04-stack-07-largestrectangleinhistogram-md",
+          "title": "Largest Rectangle In Histogram",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/largest-rectangle-in-histogram/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/largest-rectangle-in-histogram",
+          "leetcodeUrl": "https://leetcode.com/problems/largest-rectangle-in-histogram/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-5-binary-search",
+      "title": "Binary Search",
+      "totalProblems": 7,
+      "fullContentProblems": 7,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-05-binary-search-01-binarysearch-md",
+          "title": "Binary Search",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/binary-search/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/binary-search",
+          "leetcodeUrl": "https://leetcode.com/problems/binary-search/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-05-binary-search-02-searchin2dmatrix-md",
+          "title": "Search a 2D Matrix",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/search-2d-matrix/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/search-a-2d-matrix",
+          "leetcodeUrl": "https://leetcode.com/problems/search-a-2d-matrix/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-05-binary-search-03-kokoeatingbananas-md",
+          "title": "Koko Eating Bananas",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/eating-bananas/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/koko-eating-bananas",
+          "leetcodeUrl": "https://leetcode.com/problems/koko-eating-bananas/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-05-binary-search-05-findminimuminrotatedsortedarray-md",
+          "title": "Find Minimum In Rotated Sorted Array",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/find-minimum-in-rotated-sorted-array/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/find-minimum-in-rotated-sorted-array",
+          "leetcodeUrl": "https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-05-binary-search-04-searchinrotatedsortedarray-md",
+          "title": "Search In Rotated Sorted Array",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/find-target-in-rotated-sorted-array/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/search-in-rotated-sorted-array",
+          "leetcodeUrl": "https://leetcode.com/problems/search-in-rotated-sorted-array/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-05-binary-search-06-timebasedkeyvaluestore-md",
+          "title": "Time Based Key Value Store",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/time-based-key-value-store/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/time-based-key-value-store",
+          "leetcodeUrl": "https://leetcode.com/problems/time-based-key-value-store/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-05-binary-search-07-medianoftwosortedarrays-md",
+          "title": "Median of Two Sorted Arrays",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/median-of-two-sorted-arrays/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/median-of-two-sorted-arrays",
+          "leetcodeUrl": "https://leetcode.com/problems/median-of-two-sorted-arrays/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-6-linkedlist",
+      "title": "Linked List",
+      "totalProblems": 11,
+      "fullContentProblems": 11,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-01-reverselinkedlist-md",
+          "title": "Reverse Linked List",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/reverse-a-linked-list/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/reverse-linked-list",
+          "leetcodeUrl": "https://leetcode.com/problems/reverse-linked-list/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-02-mergetwolinkedlist-md",
+          "title": "Merge Two Sorted Lists",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/merge-two-sorted-linked-lists/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/merge-two-sorted-lists",
+          "leetcodeUrl": "https://leetcode.com/problems/merge-two-sorted-lists/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-07-linkedlistcycle-md",
+          "title": "Linked List Cycle",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/linked-list-cycle-detection/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/linked-list-cycle",
+          "leetcodeUrl": "https://leetcode.com/problems/linked-list-cycle/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-03-reorderlist-md",
+          "title": "Reorder List",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/reorder-linked-list/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/reorder-list",
+          "leetcodeUrl": "https://leetcode.com/problems/reorder-list/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-04-removenthnodefromendofthelist-md",
+          "title": "Remove Nth Node From End of List",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/remove-node-from-end-of-linked-list/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/remove-nth-node-from-end-of-list",
+          "leetcodeUrl": "https://leetcode.com/problems/remove-nth-node-from-end-of-list/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-05-copylistwithrandompointer-md",
+          "title": "Copy List With Random Pointer",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/copy-linked-list-with-random-pointer/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/copy-list-with-random-pointer",
+          "leetcodeUrl": "https://leetcode.com/problems/copy-list-with-random-pointer/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-06-addtwonumbers-md",
+          "title": "Add Two Numbers",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/add-two-numbers/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/add-two-numbers",
+          "leetcodeUrl": "https://leetcode.com/problems/add-two-numbers/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-08-findduplicatenumber-md",
+          "title": "Find The Duplicate Number",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/find-duplicate-integer/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/find-the-duplicate-number",
+          "leetcodeUrl": "https://leetcode.com/problems/find-the-duplicate-number/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-09-lrucache-md",
+          "title": "LRU Cache",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/lru-cache/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/lru-cache",
+          "leetcodeUrl": "https://leetcode.com/problems/lru-cache/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-10-mergeksortedlists-md",
+          "title": "Merge K Sorted Lists",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/merge-k-sorted-linked-lists/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/merge-k-sorted-lists",
+          "leetcodeUrl": "https://leetcode.com/problems/merge-k-sorted-lists/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-06-linkedlist-11-reversenodesink-group-md",
+          "title": "Reverse Nodes In K Group",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/reverse-nodes-in-k-group/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/reverse-nodes-in-k-group",
+          "leetcodeUrl": "https://leetcode.com/problems/reverse-nodes-in-k-group/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-7-trees",
+      "title": "Trees",
+      "totalProblems": 15,
+      "fullContentProblems": 15,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-01-invertbinarytree-md",
+          "title": "Invert Binary Tree",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/invert-a-binary-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/invert-binary-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/invert-binary-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-02-maxdepthofbinarytree-md",
+          "title": "Maximum Depth of Binary Tree",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/depth-of-binary-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/maximum-depth-of-binary-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/maximum-depth-of-binary-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-03-diameterofabinarytree-md",
+          "title": "Diameter of Binary Tree",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/binary-tree-diameter/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/diameter-of-binary-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/diameter-of-binary-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-04-balancedbinarytree-md",
+          "title": "Balanced Binary Tree",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/balanced-binary-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/balanced-binary-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/balanced-binary-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-05-sametree-md",
+          "title": "Same Tree",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/same-binary-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/same-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/same-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-06-subtreeofanothertree-md",
+          "title": "Subtree of Another Tree",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/subtree-of-a-binary-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/subtree-of-another-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/subtree-of-another-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-07-lowsetcommonancestorofabinarysearchtree-md",
+          "title": "Lowest Common Ancestor of a Binary Search Tree",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/lowest-common-ancestor-in-binary-search-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/lowest-common-ancestor-of-a-binary-search-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-08-binarytreelevelordertraversal-md",
+          "title": "Binary Tree Level Order Traversal",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/level-order-traversal-of-binary-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/binary-tree-level-order-traversal",
+          "leetcodeUrl": "https://leetcode.com/problems/binary-tree-level-order-traversal/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-09-binarytreerightsideview-md",
+          "title": "Binary Tree Right Side View",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/binary-tree-right-side-view/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/binary-tree-right-side-view",
+          "leetcodeUrl": "https://leetcode.com/problems/binary-tree-right-side-view/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-10-countgoodnodesinbinarytree-md",
+          "title": "Count Good Nodes In Binary Tree",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/count-good-nodes-in-binary-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/count-good-nodes-in-binary-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/count-good-nodes-in-binary-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-11-validatebinarysearchtree-md",
+          "title": "Validate Binary Search Tree",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/valid-binary-search-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/validate-binary-search-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/validate-binary-search-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-12-kthsmallestelementinabst-md",
+          "title": "Kth Smallest Element In a Bst",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/kth-smallest-integer-in-bst/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/kth-smallest-element-in-a-bst",
+          "leetcodeUrl": "https://leetcode.com/problems/kth-smallest-element-in-a-bst/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-13-constructbinarytreefrompreorderandinordertraversal-md",
+          "title": "Construct Binary Tree From Preorder And Inorder Traversal",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/binary-tree-from-preorder-and-inorder-traversal/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/construct-binary-tree-from-preorder-and-inorder-traversal",
+          "leetcodeUrl": "https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-14-binarytreemaximumpathsum-md",
+          "title": "Binary Tree Maximum Path Sum",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/binary-tree-maximum-path-sum/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/binary-tree-maximum-path-sum",
+          "leetcodeUrl": "https://leetcode.com/problems/binary-tree-maximum-path-sum/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-07-tree-15-serializeanddeserializebinarytree-md",
+          "title": "Serialize And Deserialize Binary Tree",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/serialize-and-deserialize-binary-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/serialize-and-deserialize-binary-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/serialize-and-deserialize-binary-tree/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-9-heap-priorityqueue",
+      "title": "Heap / Priority Queue",
+      "totalProblems": 7,
+      "fullContentProblems": 7,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-09-heap-or-priorityqueue-01-kthlargestelementinastream-md",
+          "title": "Kth Largest Element In a Stream",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/kth-largest-integer-in-a-stream/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/kth-largest-element-in-a-stream",
+          "leetcodeUrl": "https://leetcode.com/problems/kth-largest-element-in-a-stream/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-09-heap-or-priorityqueue-02-laststoneweight-md",
+          "title": "Last Stone Weight",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/last-stone-weight/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/last-stone-weight",
+          "leetcodeUrl": "https://leetcode.com/problems/last-stone-weight/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-09-heap-or-priorityqueue-03-kclosestpointstoorigin-md",
+          "title": "K Closest Points to Origin",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/k-closest-points-to-origin/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/k-closest-points-to-origin",
+          "leetcodeUrl": "https://leetcode.com/problems/k-closest-points-to-origin/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-09-heap-or-priorityqueue-04-kthlargestelementinanarray-md",
+          "title": "Kth Largest Element In An Array",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/kth-largest-element-in-an-array/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/kth-largest-element-in-an-array",
+          "leetcodeUrl": "https://leetcode.com/problems/kth-largest-element-in-an-array/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-09-heap-or-priorityqueue-05-taskscheduler-md",
+          "title": "Task Scheduler",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/task-scheduling/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/task-scheduler",
+          "leetcodeUrl": "https://leetcode.com/problems/task-scheduler/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-design-twitter-md",
+          "title": "Design Twitter",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/design-twitter-feed/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/design-twitter",
+          "leetcodeUrl": "https://leetcode.com/problems/design-twitter/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-09-heap-or-priorityqueue-07-findmedianfromdatastream-md",
+          "title": "Find Median From Data Stream",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/find-median-in-a-data-stream/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/find-median-from-data-stream",
+          "leetcodeUrl": "https://leetcode.com/problems/find-median-from-data-stream/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-10-backtracking",
+      "title": "Backtracking",
+      "totalProblems": 10,
+      "fullContentProblems": 10,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-01-subsets-md",
+          "title": "Subsets",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/subsets/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/subsets",
+          "leetcodeUrl": "https://leetcode.com/problems/subsets/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-02-combinationsum-md",
+          "title": "Combination Sum",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/combination-target-sum/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/combination-sum",
+          "leetcodeUrl": "https://leetcode.com/problems/combination-sum/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-05-combinationsumii-md",
+          "title": "Combination Sum II",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/combination-target-sum-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/combination-sum-ii",
+          "leetcodeUrl": "https://leetcode.com/problems/combination-sum-ii/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-03-permutations-md",
+          "title": "Permutations",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/permutations/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/permutations",
+          "leetcodeUrl": "https://leetcode.com/problems/permutations/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-04-subsetsii-md",
+          "title": "Subsets II",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/subsets-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/subsets-ii",
+          "leetcodeUrl": "https://leetcode.com/problems/subsets-ii/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-04-stack-04-generateparentheses-md",
+          "title": "Generate Parentheses",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/generate-parentheses/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/generate-parentheses",
+          "leetcodeUrl": "https://leetcode.com/problems/generate-parentheses/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-06-wordsearch-md",
+          "title": "Word Search",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/search-for-word/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/word-search",
+          "leetcodeUrl": "https://leetcode.com/problems/word-search/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-07-palindromepartitioning-md",
+          "title": "Palindrome Partitioning",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/palindrome-partitioning/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/palindrome-partitioning",
+          "leetcodeUrl": "https://leetcode.com/problems/palindrome-partitioning/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-08-lettercombinationsofaphone-md",
+          "title": "Letter Combinations of a Phone Number",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/combinations-of-a-phone-number/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/letter-combinations-of-a-phone-number",
+          "leetcodeUrl": "https://leetcode.com/problems/letter-combinations-of-a-phone-number/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-10-backtracking-09-n-queens-md",
+          "title": "N Queens",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/n-queens/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/n-queens",
+          "leetcodeUrl": "https://leetcode.com/problems/n-queens/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-8-tries",
+      "title": "Tries",
+      "totalProblems": 3,
+      "fullContentProblems": 3,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-08-trie-01-implementtrie-md",
+          "title": "Implement Trie Prefix Tree",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/implement-prefix-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/implement-trie-prefix-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/implement-trie-prefix-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-08-trie-02-designaddandsearchworddatastructure-md",
+          "title": "Design Add And Search Words Data Structure",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/design-word-search-data-structure/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/design-add-and-search-words-data-structure",
+          "leetcodeUrl": "https://leetcode.com/problems/design-add-and-search-words-data-structure/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-word-search-ii-md",
+          "title": "Word Search II",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/search-for-word-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/word-search-ii",
+          "leetcodeUrl": "https://leetcode.com/problems/word-search-ii/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-11-graphs",
+      "title": "Graphs",
+      "totalProblems": 13,
+      "fullContentProblems": 13,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-01-numberofislands-md",
+          "title": "Number of Islands",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/count-number-of-islands/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/number-of-islands",
+          "leetcodeUrl": "https://leetcode.com/problems/number-of-islands/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-03-maxareaofisland-md",
+          "title": "Max Area of Island",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/max-area-of-island/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/max-area-of-island",
+          "leetcodeUrl": "https://leetcode.com/problems/max-area-of-island/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-02-clonegraph-md",
+          "title": "Clone Graph",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/clone-graph/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/clone-graph",
+          "leetcodeUrl": "https://leetcode.com/problems/clone-graph/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-07-wallsandgates-md",
+          "title": "Walls And Gates",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/islands-and-treasure/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/walls-and-gates",
+          "leetcodeUrl": "https://leetcode.com/problems/walls-and-gates/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-06-rottenoranges-md",
+          "title": "Rotting Oranges",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/rotting-fruit/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/rotting-oranges",
+          "leetcodeUrl": "https://leetcode.com/problems/rotting-oranges/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-04-pacificatlanticwaterflow-md",
+          "title": "Pacific Atlantic Water Flow",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/pacific-atlantic-water-flow/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/pacific-atlantic-water-flow",
+          "leetcodeUrl": "https://leetcode.com/problems/pacific-atlantic-water-flow/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-05-surroundedregions-md",
+          "title": "Surrounded Regions",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/surrounded-regions/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/surrounded-regions",
+          "leetcodeUrl": "https://leetcode.com/problems/surrounded-regions/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-08-courseschedule-md",
+          "title": "Course Schedule",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/course-schedule/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/course-schedule",
+          "leetcodeUrl": "https://leetcode.com/problems/course-schedule/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-09-coursescheduleii-md",
+          "title": "Course Schedule II",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/course-schedule-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/course-schedule-ii",
+          "leetcodeUrl": "https://leetcode.com/problems/course-schedule-ii/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-12-graphvalidtree-md",
+          "title": "Graph Valid Tree",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/valid-tree/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/graph-valid-tree",
+          "leetcodeUrl": "https://leetcode.com/problems/graph-valid-tree/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-11-numberofconnectedcomponentsinanundirectedgraph-md",
+          "title": "Number of Connected Components In An Undirected Graph",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/count-connected-components/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/number-of-connected-components-in-an-undirected-graph",
+          "leetcodeUrl": "https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-10-redundantconnection-md",
+          "title": "Redundant Connection",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/redundant-connection/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/redundant-connection",
+          "leetcodeUrl": "https://leetcode.com/problems/redundant-connection/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-11-graphs-13-wordladder-md",
+          "title": "Word Ladder",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/word-ladder/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/word-ladder",
+          "leetcodeUrl": "https://leetcode.com/problems/word-ladder/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-12-advanced-graphs",
+      "title": "Advanced Graphs",
+      "totalProblems": 6,
+      "fullContentProblems": 6,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-12-advanced-graphs-03-networkdelaytime-md",
+          "title": "Network Delay Time",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/network-delay-time/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/network-delay-time",
+          "leetcodeUrl": "https://leetcode.com/problems/network-delay-time/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-reconstruct-flight-path",
+          "title": "Reconstruct Itinerary",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/reconstruct-flight-path/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/reconstruct-itinerary",
+          "leetcodeUrl": "https://leetcode.com/problems/reconstruct-itinerary/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-12-advanced-graphs-02-mincosttoconnectallpoints-md",
+          "title": "Min Cost to Connect All Points",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/min-cost-to-connect-points/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/min-cost-to-connect-all-points",
+          "leetcodeUrl": "https://leetcode.com/problems/min-cost-to-connect-all-points/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-swim-in-rising-water-md",
+          "title": "Swim In Rising Water",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/swim-in-rising-water/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/swim-in-rising-water",
+          "leetcodeUrl": "https://leetcode.com/problems/swim-in-rising-water/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-alien-dictionary-md",
+          "title": "Alien Dictionary",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/foreign-dictionary/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/alien-dictionary",
+          "leetcodeUrl": "https://leetcode.com/problems/alien-dictionary/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-12-advanced-graphs-06-cheapestflightswithinkstops-md",
+          "title": "Cheapest Flights Within K Stops",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/cheapest-flight-path/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/cheapest-flights-within-k-stops",
+          "leetcodeUrl": "https://leetcode.com/problems/cheapest-flights-within-k-stops/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-13-1-d-dynamic-programming",
+      "title": "1-D Dynamic Programming",
+      "totalProblems": 12,
+      "fullContentProblems": 12,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-01-climbingstairs-md",
+          "title": "Climbing Stairs",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/climbing-stairs/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/climbing-stairs",
+          "leetcodeUrl": "https://leetcode.com/problems/climbing-stairs/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-02-mincostclimbingstair-md",
+          "title": "Min Cost Climbing Stairs",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/min-cost-climbing-stairs/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/min-cost-climbing-stairs",
+          "leetcodeUrl": "https://leetcode.com/problems/min-cost-climbing-stairs/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-03-houserobber-md",
+          "title": "House Robber",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/house-robber/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/house-robber",
+          "leetcodeUrl": "https://leetcode.com/problems/house-robber/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-04-houserobberii-md",
+          "title": "House Robber II",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/house-robber-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/house-robber-ii",
+          "leetcodeUrl": "https://leetcode.com/problems/house-robber-ii/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-05-longestpalindromicsubstring-md",
+          "title": "Longest Palindromic Substring",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/longest-palindromic-substring/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/longest-palindromic-substring",
+          "leetcodeUrl": "https://leetcode.com/problems/longest-palindromic-substring/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-06-palindromicsubstrings-md",
+          "title": "Palindromic Substrings",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/palindromic-substrings/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/palindromic-substrings",
+          "leetcodeUrl": "https://leetcode.com/problems/palindromic-substrings/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-07-decodeways-md",
+          "title": "Decode Ways",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/decode-ways/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/decode-ways",
+          "leetcodeUrl": "https://leetcode.com/problems/decode-ways/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-08-coinchange-md",
+          "title": "Coin Change",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/coin-change/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/coin-change",
+          "leetcodeUrl": "https://leetcode.com/problems/coin-change/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-09-maxproductsubarray-md",
+          "title": "Maximum Product Subarray",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/maximum-product-subarray/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/maximum-product-subarray",
+          "leetcodeUrl": "https://leetcode.com/problems/maximum-product-subarray/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-10-wordbreak-md",
+          "title": "Word Break",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/word-break/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/word-break",
+          "leetcodeUrl": "https://leetcode.com/problems/word-break/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-11-longestincreasingsubsequence-md",
+          "title": "Longest Increasing Subsequence",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/longest-increasing-subsequence/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/longest-increasing-subsequence",
+          "leetcodeUrl": "https://leetcode.com/problems/longest-increasing-subsequence/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-13-1-d-dynamic-programming-12-partitionequalsubsetsum-md",
+          "title": "Partition Equal Subset Sum",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/partition-equal-subset-sum/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/partition-equal-subset-sum",
+          "leetcodeUrl": "https://leetcode.com/problems/partition-equal-subset-sum/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-14-2-d-dynamic-programming",
+      "title": "2-D Dynamic Programming",
+      "totalProblems": 11,
+      "fullContentProblems": 11,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-14-2-d-dynamic-programming-01-uniquepaths-md",
+          "title": "Unique Paths",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/count-paths/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/unique-paths",
+          "leetcodeUrl": "https://leetcode.com/problems/unique-paths/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-14-2-d-dynamic-programming-02-longestcommonsubsequence-md",
+          "title": "Longest Common Subsequence",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/longest-common-subsequence/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/longest-common-subsequence",
+          "leetcodeUrl": "https://leetcode.com/problems/longest-common-subsequence/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-14-2-d-dynamic-programming-03-besttimetobuyandsellstockwithcooldown-md",
+          "title": "Best Time to Buy And Sell Stock With Cooldown",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/buy-and-sell-crypto-with-cooldown/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/best-time-to-buy-and-sell-stock-with-cooldown",
+          "leetcodeUrl": "https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-cooldown/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-14-2-d-dynamic-programming-04-coinchange2-md",
+          "title": "Coin Change II",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/coin-change-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/coin-change-ii",
+          "leetcodeUrl": "https://leetcode.com/problems/coin-change-ii/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-target-sum-md",
+          "title": "Target Sum",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/target-sum/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/target-sum",
+          "leetcodeUrl": "https://leetcode.com/problems/target-sum/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-interleaving-string-md",
+          "title": "Interleaving String",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/interleaving-string/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/interleaving-string",
+          "leetcodeUrl": "https://leetcode.com/problems/interleaving-string/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-14-2-d-dynamic-programming-07-longestincreasingpathinamatrix-md",
+          "title": "Longest Increasing Path In a Matrix",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/longest-increasing-path-in-matrix/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/longest-increasing-path-in-a-matrix",
+          "leetcodeUrl": "https://leetcode.com/problems/longest-increasing-path-in-a-matrix/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-distinct-subsequences-md",
+          "title": "Distinct Subsequences",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/count-subsequences/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/distinct-subsequences",
+          "leetcodeUrl": "https://leetcode.com/problems/distinct-subsequences/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-14-2-d-dynamic-programming-09-editdistance-md",
+          "title": "Edit Distance",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/edit-distance/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/edit-distance",
+          "leetcodeUrl": "https://leetcode.com/problems/edit-distance/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-burst-balloons-md",
+          "title": "Burst Balloons",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/burst-balloons/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/burst-balloons",
+          "leetcodeUrl": "https://leetcode.com/problems/burst-balloons/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-regular-expression-matching-md",
+          "title": "Regular Expression Matching",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/regular-expression-matching/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/regular-expression-matching",
+          "leetcodeUrl": "https://leetcode.com/problems/regular-expression-matching/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-15-greedy",
+      "title": "Greedy",
+      "totalProblems": 8,
+      "fullContentProblems": 8,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-15-greedy-01-maximumsubarray-md",
+          "title": "Maximum Subarray",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/maximum-subarray/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/maximum-subarray",
+          "leetcodeUrl": "https://leetcode.com/problems/maximum-subarray/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-15-greedy-02-jump-md",
+          "title": "Jump Game",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/jump-game/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/jump-game",
+          "leetcodeUrl": "https://leetcode.com/problems/jump-game/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-15-greedy-03-jumpii-md",
+          "title": "Jump Game II",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/jump-game-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/jump-game-ii",
+          "leetcodeUrl": "https://leetcode.com/problems/jump-game-ii/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-15-greedy-04-gasstation-md",
+          "title": "Gas Station",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/gas-station/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/gas-station",
+          "leetcodeUrl": "https://leetcode.com/problems/gas-station/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-15-greedy-05-handofstraights-md",
+          "title": "Hand of Straights",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/hand-of-straights/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/hand-of-straights",
+          "leetcodeUrl": "https://leetcode.com/problems/hand-of-straights/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-merge-triplets-to-form-target",
+          "title": "Merge Triplets to Form Target Triplet",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/merge-triplets-to-form-target/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/merge-triplets-to-form-target-triplet",
+          "leetcodeUrl": "https://leetcode.com/problems/merge-triplets-to-form-target-triplet/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-partition-labels-md",
+          "title": "Partition Labels",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/partition-labels/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/partition-labels",
+          "leetcodeUrl": "https://leetcode.com/problems/partition-labels/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-15-greedy-08-validparenthesisstring-md",
+          "title": "Valid Parenthesis String",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/valid-parenthesis-string/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/valid-parenthesis-string",
+          "leetcodeUrl": "https://leetcode.com/problems/valid-parenthesis-string/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-16-intervals",
+      "title": "Intervals",
+      "totalProblems": 6,
+      "fullContentProblems": 6,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-16-intervals-01-insertinterval-md",
+          "title": "Insert Interval",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/insert-new-interval/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/insert-interval",
+          "leetcodeUrl": "https://leetcode.com/problems/insert-interval/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-16-intervals-02-mergeinterval-md",
+          "title": "Merge Intervals",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/merge-intervals/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/merge-intervals",
+          "leetcodeUrl": "https://leetcode.com/problems/merge-intervals/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-16-intervals-03-non-overlappingintervals-md",
+          "title": "Non Overlapping Intervals",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/non-overlapping-intervals/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/non-overlapping-intervals",
+          "leetcodeUrl": "https://leetcode.com/problems/non-overlapping-intervals/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-16-intervals-04-meetingrooms-md",
+          "title": "Meeting Rooms",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/meeting-schedule/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/meeting-rooms",
+          "leetcodeUrl": "https://leetcode.com/problems/meeting-rooms/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-16-intervals-05-meetingroomsii-md",
+          "title": "Meeting Rooms II",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/meeting-schedule-ii/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/meeting-rooms-ii",
+          "leetcodeUrl": "https://leetcode.com/problems/meeting-rooms-ii/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-minimum-interval-to-include-each-query-md",
+          "title": "Minimum Interval to Include Each Query",
+          "difficulty": "Hard",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/minimum-interval-including-query/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/minimum-interval-to-include-each-query",
+          "leetcodeUrl": "https://leetcode.com/problems/minimum-interval-to-include-each-query/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-17-math-geometry",
+      "title": "Math & Geometry",
+      "totalProblems": 8,
+      "fullContentProblems": 8,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-17-math-geometry-01-rotateimage-md",
+          "title": "Rotate Image",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/rotate-matrix/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/rotate-image",
+          "leetcodeUrl": "https://leetcode.com/problems/rotate-image/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-17-math-geometry-02-spiralmatrix-md",
+          "title": "Spiral Matrix",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/spiral-matrix/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/spiral-matrix",
+          "leetcodeUrl": "https://leetcode.com/problems/spiral-matrix/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-17-math-geometry-03-setmatrixzeroes-md",
+          "title": "Set Matrix Zeroes",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/set-zeroes-in-matrix/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/set-matrix-zeroes",
+          "leetcodeUrl": "https://leetcode.com/problems/set-matrix-zeroes/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-17-math-geometry-04-happynumber-md",
+          "title": "Happy Number",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/non-cyclical-number/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/happy-number",
+          "leetcodeUrl": "https://leetcode.com/problems/happy-number/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-17-math-geometry-05-plusone-md",
+          "title": "Plus One",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/plus-one/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/plus-one",
+          "leetcodeUrl": "https://leetcode.com/problems/plus-one/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-17-math-geometry-06-pow-x-n-md",
+          "title": "Pow(x, n)",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/pow-x-n/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/powx-n",
+          "leetcodeUrl": "https://leetcode.com/problems/powx-n/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-17-math-geometry-07-multiplystrings-md",
+          "title": "Multiply Strings",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/multiply-strings/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/multiply-strings",
+          "leetcodeUrl": "https://leetcode.com/problems/multiply-strings/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-detect-squares-md",
+          "title": "Detect Squares",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/count-squares/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/detect-squares",
+          "leetcodeUrl": "https://leetcode.com/problems/detect-squares/"
+        }
+      ]
+    },
+    {
+      "id": "github-dipjul-neetcode-150-set-18-bit-manipulation",
+      "title": "Bit Manipulation",
+      "totalProblems": 7,
+      "fullContentProblems": 7,
+      "placeholderProblems": 0,
+      "problems": [
+        {
+          "id": "github-dipjul-neetcode-150-problem-18-bit-manipulation-01-singlenumber-md",
+          "title": "Single Number",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/single-number/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/single-number",
+          "leetcodeUrl": "https://leetcode.com/problems/single-number/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-18-bit-manipulation-02-numberof1bits-md",
+          "title": "Number of 1 Bits",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/number-of-one-bits/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/number-of-1-bits",
+          "leetcodeUrl": "https://leetcode.com/problems/number-of-1-bits/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-18-bit-manipulation-03-countingbits-md",
+          "title": "Counting Bits",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/counting-bits/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/counting-bits",
+          "leetcodeUrl": "https://leetcode.com/problems/counting-bits/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-18-bit-manipulation-04-reversebits-md",
+          "title": "Reverse Bits",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/reverse-bits/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/reverse-bits",
+          "leetcodeUrl": "https://leetcode.com/problems/reverse-bits/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-18-bit-manipulation-05-missingnumber-md",
+          "title": "Missing Number",
+          "difficulty": "Easy",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/missing-number/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/missing-number",
+          "leetcodeUrl": "https://leetcode.com/problems/missing-number/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-18-bit-manipulation-06-sumoftwointegers-md",
+          "title": "Sum of Two Integers",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/sum-of-two-integers/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/sum-of-two-integers",
+          "leetcodeUrl": "https://leetcode.com/problems/sum-of-two-integers/"
+        },
+        {
+          "id": "github-dipjul-neetcode-150-problem-readme-only-reverse-integer-md",
+          "title": "Reverse Integer",
+          "difficulty": "Medium",
+          "contentStatus": "full",
+          "questionUrl": "https://neetcode.io/problems/reverse-integer/question?list=neetcode150",
+          "solutionUrl": "https://neetcode.io/solutions/reverse-integer",
+          "leetcodeUrl": "https://leetcode.com/problems/reverse-integer/"
+        }
+      ]
+    }
+  ]
+}

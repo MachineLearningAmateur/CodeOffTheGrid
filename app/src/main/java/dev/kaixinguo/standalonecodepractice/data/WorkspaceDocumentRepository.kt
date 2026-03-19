@@ -6,6 +6,8 @@ import androidx.compose.ui.graphics.toArgb
 import dev.kaixinguo.standalonecodepractice.data.local.WorkspaceDocumentDao
 import dev.kaixinguo.standalonecodepractice.data.local.WorkspaceDocumentEntity
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemListItem
+import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestCase
+import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestSuite
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemWorkspaceDocument
 import dev.kaixinguo.standalonecodepractice.ui.workspace.SketchStroke
 import org.json.JSONArray
@@ -20,14 +22,14 @@ internal class WorkspaceDocumentRepository(
             ProblemWorkspaceDocument(
                 problemId = stored.problemId,
                 draftCode = stored.draftCode,
-                customTests = stored.customTests,
+                customTestSuite = decodeCustomTestSuite(stored.customTests),
                 sketches = decodeSketches(stored.sketchesJson)
             )
         } else {
             ProblemWorkspaceDocument(
                 problemId = problem.id,
                 draftCode = problem.starterCode,
-                customTests = problem.customTests,
+                customTestSuite = ProblemTestSuite(draft = problem.customTests),
                 sketches = emptyList()
             )
         }
@@ -36,18 +38,64 @@ internal class WorkspaceDocumentRepository(
     suspend fun saveDocument(
         problemId: String,
         draftCode: String,
-        customTests: String,
+        customTestSuite: ProblemTestSuite,
         sketches: List<SketchStroke>
     ) {
         workspaceDocumentDao.upsert(
             WorkspaceDocumentEntity(
                 problemId = problemId,
                 draftCode = draftCode,
-                customTests = customTests,
+                customTests = encodeCustomTestSuite(customTestSuite),
                 sketchesJson = encodeSketches(sketches),
                 updatedAtEpochMillis = System.currentTimeMillis()
             )
         )
+    }
+
+    private fun encodeCustomTestSuite(customTestSuite: ProblemTestSuite): String {
+        val cases = JSONArray()
+        customTestSuite.cases.forEach { testCase ->
+            cases.put(
+                JSONObject()
+                    .put("id", testCase.id)
+                    .put("label", testCase.label)
+                    .put("stdin", testCase.stdin)
+                    .put("expectedOutput", testCase.expectedOutput)
+                    .put("enabled", testCase.enabled)
+            )
+        }
+        return JSONObject()
+            .put("draft", customTestSuite.draft)
+            .put("cases", cases)
+            .toString()
+    }
+
+    private fun decodeCustomTestSuite(customTests: String): ProblemTestSuite {
+        if (customTests.isBlank()) return ProblemTestSuite()
+        return runCatching {
+            val json = JSONObject(customTests)
+            val casesJson = json.optJSONArray("cases") ?: JSONArray()
+            ProblemTestSuite(
+                draft = json.optString("draft"),
+                cases = buildList {
+                    for (index in 0 until casesJson.length()) {
+                        val caseJson = casesJson.getJSONObject(index)
+                        add(
+                            ProblemTestCase(
+                                id = caseJson.optString("id").ifBlank { "case-$index" },
+                                label = caseJson.optString("label").ifBlank { "Case ${index + 1}" },
+                                stdin = caseJson.optString("stdin"),
+                                expectedOutput = caseJson.optString("expectedOutput"),
+                                enabled = caseJson.optBoolean("enabled", true)
+                            )
+                        )
+                    }
+                }
+            )
+        }.getOrElse {
+            // Older builds stored custom tests as plain text. Keep that data as the draft body.
+            ProblemTestSuite(draft = customTests)
+        }
     }
 
     private fun encodeSketches(sketches: List<SketchStroke>): String {

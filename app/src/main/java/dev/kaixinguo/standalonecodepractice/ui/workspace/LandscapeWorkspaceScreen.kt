@@ -10,6 +10,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.kaixinguo.standalonecodepractice.data.GitHubMarkdownImportService
+import dev.kaixinguo.standalonecodepractice.data.LocalPythonExecutionService
+import dev.kaixinguo.standalonecodepractice.data.ProblemCatalogRepository
 import dev.kaixinguo.standalonecodepractice.data.WorkspaceDocumentRepository
 import dev.kaixinguo.standalonecodepractice.ui.theme.AppBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.StandaloneCodePracticeTheme
@@ -17,37 +20,24 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun LandscapeWorkspaceScreen(
+    problemCatalogRepository: ProblemCatalogRepository,
     workspaceDocumentRepository: WorkspaceDocumentRepository,
+    gitHubMarkdownImportService: GitHubMarkdownImportService,
+    localPythonExecutionService: LocalPythonExecutionService,
+    seedCatalogProvider: suspend () -> List<ProblemFolderState>,
     modifier: Modifier = Modifier
 ) {
-    val folders = remember {
-        mutableStateListOf<ProblemFolderState>().apply {
-            addAll(sampleFolders())
-        }
-    }
-    val initialSelectedSetId = remember(folders) {
-        folders
-            .flatMap { it.sets }
-            .firstOrNull { set -> set.problems.any { it.active } }
-            ?.id
-            ?: folders.firstOrNull()?.sets?.firstOrNull()?.id.orEmpty()
-    }
-    val initialSelectedProblemId = remember(folders) {
-        folders
-            .flatMap { it.sets }
-            .flatMap { it.problems }
-            .firstOrNull { it.active }
-            ?.id
-            ?: folders.firstOrNull()?.sets?.firstOrNull()?.problems?.firstOrNull()?.id.orEmpty()
-    }
-    var selectedProblemId by remember { mutableStateOf(initialSelectedProblemId) }
-    var selectedProblemSetId by remember { mutableStateOf(initialSelectedSetId) }
+    val folders = remember { mutableStateListOf<ProblemFolderState>() }
+    var selectedProblemId by remember { mutableStateOf("") }
+    var selectedProblemSetId by remember { mutableStateOf("") }
     var sidebarMode by remember { mutableStateOf(SidebarMode.Problems) }
     var sidebarCollapsed by remember { mutableStateOf(false) }
     var workspaceInputMode by remember { mutableStateOf(WorkspaceInputMode.Keyboard) }
     val sketchStrokes = remember { mutableStateListOf<SketchStroke>() }
     var currentDraftCode by remember { mutableStateOf("") }
-    var currentCustomTests by remember { mutableStateOf("") }
+    var currentCustomTestSuite by remember { mutableStateOf(ProblemTestSuite()) }
+    var importInProgress by remember { mutableStateOf(false) }
+    var importFeedback by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val sidebarWidth by animateDpAsState(
         targetValue = if (sidebarCollapsed) 84.dp else 288.dp,
@@ -64,20 +54,52 @@ internal fun LandscapeWorkspaceScreen(
         ?: selectedProblemSet?.problems?.firstOrNull()
         ?: allSets.flatMap { it.problems }.firstOrNull()
 
+    LaunchedEffect(Unit) {
+        val seedFolders = seedCatalogProvider()
+        val loadedFolders = problemCatalogRepository.loadCatalog()
+        val resolvedFolders = when {
+            loadedFolders.isEmpty() -> {
+                problemCatalogRepository.persistCatalog(seedFolders)
+                problemCatalogRepository.loadCatalog()
+            }
+            loadedFolders.all { it.id in LEGACY_TEMPLATE_FOLDER_IDS } -> {
+                problemCatalogRepository.persistCatalog(seedFolders)
+                problemCatalogRepository.loadCatalog()
+            }
+            else -> {
+                val synchronizedFolders = synchronizeSeedCatalog(
+                    loadedFolders = loadedFolders,
+                    seedFolders = seedFolders
+                )
+                if (catalogChanged(loadedFolders, synchronizedFolders)) {
+                    problemCatalogRepository.persistCatalog(synchronizedFolders)
+                    problemCatalogRepository.loadCatalog()
+                } else {
+                    loadedFolders
+                }
+            }
+        }
+        folders.clear()
+        folders.addAll(resolvedFolders)
+        val (initialSetId, initialProblemId) = resolveSelection(resolvedFolders)
+        selectedProblemSetId = initialSetId
+        selectedProblemId = initialProblemId
+    }
+
     LaunchedEffect(selectedProblem?.id) {
         if (selectedProblem != null) {
             currentDraftCode = selectedProblem.starterCode
-            currentCustomTests = selectedProblem.customTests
+            currentCustomTestSuite = ProblemTestSuite(draft = selectedProblem.customTests)
             sketchStrokes.clear()
 
             val document = workspaceDocumentRepository.loadDocument(selectedProblem)
             currentDraftCode = document.draftCode
-            currentCustomTests = document.customTests
+            currentCustomTestSuite = document.customTestSuite
             sketchStrokes.clear()
             sketchStrokes.addAll(document.sketches)
         } else {
             currentDraftCode = ""
-            currentCustomTests = ""
+            currentCustomTestSuite = ProblemTestSuite()
             sketchStrokes.clear()
         }
     }
@@ -92,6 +114,29 @@ internal fun LandscapeWorkspaceScreen(
             )
             .padding(20.dp)
     ) {
+        fun persistCatalogSnapshot() {
+            val snapshot = folders.deepCopy()
+            scope.launch {
+                problemCatalogRepository.persistCatalog(snapshot)
+            }
+        }
+
+        fun persistWorkspaceDocument(
+            problemId: String,
+            draftCode: String,
+            customTestSuite: ProblemTestSuite,
+            sketches: List<SketchStroke>
+        ) {
+            scope.launch {
+                workspaceDocumentRepository.saveDocument(
+                    problemId = problemId,
+                    draftCode = draftCode,
+                    customTestSuite = customTestSuite,
+                    sketches = sketches
+                )
+            }
+        }
+
         Row(
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -107,6 +152,8 @@ internal fun LandscapeWorkspaceScreen(
                         val activeProblem = set.problems.firstOrNull { it.active } ?: set.problems.firstOrNull()
                         if (activeProblem != null) {
                             selectedProblemId = activeProblem.id
+                            updateActiveProblemSelection(folders, selectedProblemSetId, selectedProblemId)
+                            persistCatalogSnapshot()
                         }
                     }
                 },
@@ -118,6 +165,7 @@ internal fun LandscapeWorkspaceScreen(
                         val updated = set.problems.map { it.copy(active = it.id == problemId) }
                         set.problems.clear()
                         set.problems.addAll(updated)
+                        persistCatalogSnapshot()
                     }
                 },
                 onDeleteProblem = { setId, problem ->
@@ -136,6 +184,8 @@ internal fun LandscapeWorkspaceScreen(
                             selectedProblemId = ""
                         }
                     }
+                    updateActiveProblemSelection(folders, selectedProblemSetId, selectedProblemId)
+                    persistCatalogSnapshot()
                 },
                 onCreateFolder = { folderTitle ->
                     folders.add(
@@ -144,15 +194,17 @@ internal fun LandscapeWorkspaceScreen(
                             sets = mutableStateListOf()
                         )
                     )
+                    persistCatalogSnapshot()
                 },
-                onCreateSet = { folderId ->
+                onCreateSet = { folderId, requestedTitle ->
                     val folder = folders.firstOrNull { it.id == folderId } ?: return@SidebarPane
+                    val requestedBaseTitle = requestedTitle.trim().ifBlank { "New Set" }
                     val existingTitles = folder.sets.map { it.title }.toSet()
                     var index = 1
-                    var candidate = "New Set"
+                    var candidate = requestedBaseTitle
                     while (candidate in existingTitles) {
                         index += 1
-                        candidate = "New Set $index"
+                        candidate = "$requestedBaseTitle $index"
                     }
                     folder.sets.add(
                         ProblemSetState(
@@ -164,6 +216,7 @@ internal fun LandscapeWorkspaceScreen(
                         selectedProblemSetId = folder.sets.last().id
                         selectedProblemId = ""
                     }
+                    persistCatalogSnapshot()
                 },
                 onDeleteSet = { setId ->
                     val folder = folders.firstOrNull { folderState ->
@@ -177,6 +230,8 @@ internal fun LandscapeWorkspaceScreen(
                         selectedProblemSetId = fallbackSet?.id.orEmpty()
                         selectedProblemId = fallbackProblem?.id.orEmpty()
                     }
+                    updateActiveProblemSelection(folders, selectedProblemSetId, selectedProblemId)
+                    persistCatalogSnapshot()
                 },
                 onDeleteFolder = { folderId ->
                     val folderIndex = folders.indexOfFirst { it.id == folderId }
@@ -190,6 +245,8 @@ internal fun LandscapeWorkspaceScreen(
                         selectedProblemSetId = fallbackSet?.id.orEmpty()
                         selectedProblemId = fallbackProblem?.id.orEmpty()
                     }
+                    updateActiveProblemSelection(folders, selectedProblemSetId, selectedProblemId)
+                    persistCatalogSnapshot()
                 },
                 onMoveProblem = { sourceSetId, targetSetId, problem, targetIndex ->
                     val sourceSet = folders.flatMap { it.sets }.firstOrNull { it.id == sourceSetId } ?: return@SidebarPane
@@ -218,7 +275,37 @@ internal fun LandscapeWorkspaceScreen(
                         set.problems.clear()
                         set.problems.addAll(updated)
                     }
+                    persistCatalogSnapshot()
                 },
+                onImportGitHubRepo = { repoUrl ->
+                    importInProgress = true
+                    importFeedback = null
+                    scope.launch {
+                        try {
+                            val importedFolder = gitHubMarkdownImportService.importRepo(repoUrl)
+                            val existingIndex = folders.indexOfFirst { it.id == importedFolder.id }
+                            if (existingIndex >= 0) {
+                                folders[existingIndex] = importedFolder
+                            } else {
+                                folders.add(importedFolder)
+                            }
+                            val firstSet = importedFolder.sets.firstOrNull()
+                            val firstProblem = firstSet?.problems?.firstOrNull()
+                            selectedProblemSetId = firstSet?.id.orEmpty()
+                            selectedProblemId = firstProblem?.id.orEmpty()
+                            updateActiveProblemSelection(folders, selectedProblemSetId, selectedProblemId)
+                            persistCatalogSnapshot()
+                            val importedCount = importedFolder.sets.sumOf { it.problems.size }
+                            importFeedback = "Imported $importedCount problems from ${importedFolder.title}."
+                        } catch (error: Exception) {
+                            importFeedback = error.message ?: "Import failed."
+                        } finally {
+                            importInProgress = false
+                        }
+                    }
+                },
+                importInProgress = importInProgress,
+                importFeedback = importFeedback,
                 selectedMode = sidebarMode,
                 onModeSelected = { sidebarMode = it },
                 collapsed = sidebarCollapsed,
@@ -234,32 +321,22 @@ internal fun LandscapeWorkspaceScreen(
                     sketchStrokes = sketchStrokes,
                     onDraftCodeChange = { updatedCode ->
                         currentDraftCode = updatedCode
-                        val problemId = selectedProblem.id
-                        val customTests = currentCustomTests
-                        val sketches = sketchStrokes.toList()
-                        scope.launch {
-                            workspaceDocumentRepository.saveDocument(
-                                problemId = problemId,
-                                draftCode = updatedCode,
-                                customTests = customTests,
-                                sketches = sketches
-                            )
-                        }
+                        persistWorkspaceDocument(
+                            problemId = selectedProblem.id,
+                            draftCode = updatedCode,
+                            customTestSuite = currentCustomTestSuite,
+                            sketches = sketchStrokes.toList()
+                        )
                     },
                     onSketchesChange = { updatedSketches ->
                         sketchStrokes.clear()
                         sketchStrokes.addAll(updatedSketches)
-                        val problemId = selectedProblem.id
-                        val draftCode = currentDraftCode
-                        val customTests = currentCustomTests
-                        scope.launch {
-                            workspaceDocumentRepository.saveDocument(
-                                problemId = problemId,
-                                draftCode = draftCode,
-                                customTests = customTests,
-                                sketches = updatedSketches
-                            )
-                        }
+                        persistWorkspaceDocument(
+                            problemId = selectedProblem.id,
+                            draftCode = currentDraftCode,
+                            customTestSuite = currentCustomTestSuite,
+                            sketches = updatedSketches
+                        )
                     },
                     inputMode = workspaceInputMode,
                     onInputModeChange = { workspaceInputMode = it },
@@ -269,21 +346,18 @@ internal fun LandscapeWorkspaceScreen(
                 )
                 ProblemPane(
                     problem = selectedProblem,
-                    customTestCode = currentCustomTests,
-                    onCustomTestCodeChange = { updatedCustomTests ->
-                        currentCustomTests = updatedCustomTests
-                        val problemId = selectedProblem.id
-                        val draftCode = currentDraftCode
-                        val sketches = sketchStrokes.toList()
-                        scope.launch {
-                            workspaceDocumentRepository.saveDocument(
-                                problemId = problemId,
-                                draftCode = draftCode,
-                                customTests = updatedCustomTests,
-                                sketches = sketches
-                            )
-                        }
+                    draftCode = currentDraftCode,
+                    customTestSuite = currentCustomTestSuite,
+                    onCustomTestSuiteChange = { updatedCustomTestSuite ->
+                        currentCustomTestSuite = updatedCustomTestSuite
+                        persistWorkspaceDocument(
+                            problemId = selectedProblem.id,
+                            draftCode = currentDraftCode,
+                            customTestSuite = updatedCustomTestSuite,
+                            sketches = sketchStrokes.toList()
+                        )
                     },
+                    localPythonExecutionService = localPythonExecutionService,
                     modifier = Modifier
                         .width(356.dp)
                         .fillMaxHeight()
@@ -293,135 +367,224 @@ internal fun LandscapeWorkspaceScreen(
     }
 }
 
-private fun sampleFolders(): List<ProblemFolderState> {
+private val LEGACY_TEMPLATE_FOLDER_IDS = setOf(
+    "folder-interview-prep",
+    "folder-graph-study"
+)
+
+private fun synchronizeSeedCatalog(
+    loadedFolders: List<ProblemFolderState>,
+    seedFolders: List<ProblemFolderState>
+): List<ProblemFolderState> {
+    if (seedFolders.isEmpty()) return loadedFolders
+
+    val bundledSeedIds = seedFolders.map { it.id }.toSet()
+    val mergedFolders = loadedFolders
+        .filterNot { folder -> folder.id in bundledSeedIds }
+        .toMutableList()
+
+    seedFolders.asReversed().forEach { seedFolder ->
+        val existingFolder = loadedFolders.firstOrNull { it.id == seedFolder.id }
+        val mergedSeedFolder = if (existingFolder != null) {
+            mergeSeedFolder(seedFolder = seedFolder, existingFolder = existingFolder)
+        } else {
+            copyFolderState(seedFolder)
+        }
+        mergedFolders.add(0, mergedSeedFolder)
+    }
+
+    return mergedFolders
+}
+
+private fun copyFolderState(folder: ProblemFolderState): ProblemFolderState {
+    return ProblemFolderState(
+        id = folder.id,
+        title = folder.title,
+        sets = mutableStateListOf<ProblemSetState>().apply {
+            addAll(
+                folder.sets.map { set ->
+                    ProblemSetState(
+                        id = set.id,
+                        title = set.title,
+                        problems = mutableStateListOf<ProblemListItem>().apply {
+                            addAll(set.problems.map { it.copy() })
+                        }
+                    )
+                }
+            )
+        }
+    )
+}
+
+private fun mergeSeedFolder(
+    seedFolder: ProblemFolderState,
+    existingFolder: ProblemFolderState
+): ProblemFolderState {
+    val existingSetsById = existingFolder.sets.associateBy { it.id }
+    return ProblemFolderState(
+        id = seedFolder.id,
+        title = seedFolder.title,
+        sets = mutableStateListOf<ProblemSetState>().apply {
+            addAll(
+                seedFolder.sets.map { seedSet ->
+                    val existingSet = existingSetsById[seedSet.id]
+                    mergeSeedSet(seedSet = seedSet, existingSet = existingSet)
+                }
+            )
+        }
+    )
+}
+
+private fun mergeSeedSet(
+    seedSet: ProblemSetState,
+    existingSet: ProblemSetState?
+): ProblemSetState {
+    val existingProblemsById = existingSet?.problems?.associateBy { it.id }.orEmpty()
+    return ProblemSetState(
+        id = seedSet.id,
+        title = seedSet.title,
+        problems = mutableStateListOf<ProblemListItem>().apply {
+            addAll(
+                seedSet.problems.map { seedProblem ->
+                    val existingProblem = existingProblemsById[seedProblem.id]
+                    seedProblem.copy(
+                        active = existingProblem?.active ?: seedProblem.active,
+                        solved = existingProblem?.solved ?: seedProblem.solved,
+                        customTests = existingProblem?.customTests ?: seedProblem.customTests
+                    )
+                }
+            )
+        }
+    )
+}
+
+private fun catalogChanged(
+    previous: List<ProblemFolderState>,
+    updated: List<ProblemFolderState>
+): Boolean {
+    if (previous.size != updated.size) return true
+    return previous.zip(updated).any { (before, after) ->
+        !folderMatches(before, after)
+    }
+}
+
+private fun folderMatches(
+    left: ProblemFolderState,
+    right: ProblemFolderState
+): Boolean {
+    if (left.id != right.id || left.title != right.title || left.sets.size != right.sets.size) {
+        return false
+    }
+    return left.sets.zip(right.sets).all { (leftSet, rightSet) ->
+        setMatches(leftSet, rightSet)
+    }
+}
+
+private fun setMatches(
+    left: ProblemSetState,
+    right: ProblemSetState
+): Boolean {
+    if (left.id != right.id || left.title != right.title || left.problems.size != right.problems.size) {
+        return false
+    }
+    return left.problems.zip(right.problems).all { (leftProblem, rightProblem) ->
+        leftProblem == rightProblem
+    }
+}
+
+private fun previewCatalog(): List<ProblemFolderState> {
     return listOf(
         ProblemFolderState(
-            id = "folder-interview-prep",
-            title = "Interview Prep",
+            id = "folder-neetcode-150",
+            title = "NeetCode 150",
             sets = mutableStateListOf(
                 ProblemSetState(
-                    id = "set-trees",
-                    title = "Trees",
+                    id = "set-arrays-hashing",
+                    title = "Arrays & Hashing",
                     problems = mutableStateListOf(
                         ProblemListItem(
-                            id = "problem-tree-traversal",
-                            title = "Tree Traversal",
+                            id = "problem-contains-duplicate",
+                            title = "Contains Duplicate",
+                            difficulty = "Easy",
                             active = true,
-                            solved = true,
-                            summary = "Given a binary tree, return the nodes in pre-order, in-order, and post-order traversal.",
-                            exampleInput = "root = [1, 2, 3, null, 4]",
-                            exampleOutput = "Pre-order: [1, 2, 4, 3]\nIn-order: [2, 4, 1, 3]\nPost-order: [4, 2, 3, 1]",
+                            summary = "Return true when any value appears at least twice in the array.",
+                            exampleInput = "nums = [1,2,3,1]",
+                            exampleOutput = "true",
                             starterCode = """
-                                def preorder(root):
-                                    if root is None:
-                                        return []
-
-                                    result = [root.val]
-                                    result += preorder(root.left)
-                                    result += preorder(root.right)
-                                    return result
+                                def containsDuplicate(nums):
+                                    seen = set()
+                                    for value in nums:
+                                        if value in seen:
+                                            return True
+                                        seen.add(value)
+                                    return False
                             """.trimIndent(),
                             customTests = """
                                 case_1 = {
-                                    "input": [1, 2, 3, None, 4],
-                                    "expected": [1, 2, 4, 3]
+                                    "nums": [1, 2, 3, 1],
+                                    "expected": true
                                 }
 
                                 case_2 = {
-                                    "input": [],
-                                    "expected": []
+                                    "nums": [1, 2, 3, 4],
+                                    "expected": false
                                 }
                             """.trimIndent(),
                             hints = listOf(
-                                "Remember the order of traversal methods.",
-                                "Think about recursion or using a stack.",
-                                "Pre-order visits root first. In-order centers the root. Post-order delays the root until both sides are explored."
+                                "A hash set gives you O(1) expected lookups.",
+                                "Stop as soon as you see a repeated value."
                             )
                         ),
                         ProblemListItem(
-                            id = "problem-path-sum",
-                            title = "Path Sum",
-                            solved = true,
-                            summary = "Determine whether the tree has any root-to-leaf path whose values sum to a target.",
-                            exampleInput = "root = [5,4,8,11,null,13,4,7,2], targetSum = 22",
-                            exampleOutput = "True",
+                            id = "problem-valid-anagram",
+                            title = "Valid Anagram",
+                            difficulty = "Easy",
+                            summary = "Check whether two strings contain the same characters with the same frequencies.",
+                            exampleInput = "s = \"anagram\", t = \"nagaram\"",
+                            exampleOutput = "true",
                             starterCode = """
-                                def has_path_sum(root, target_sum):
-                                    if root is None:
+                                def isAnagram(s, t):
+                                    if len(s) != len(t):
                                         return False
-                                    if root.left is None and root.right is None:
-                                        return root.val == target_sum
-                                    remaining = target_sum - root.val
-                                    return (
-                                        has_path_sum(root.left, remaining) or
-                                        has_path_sum(root.right, remaining)
-                                    )
+                                    counts = {}
+                                    for char in s:
+                                        counts[char] = counts.get(char, 0) + 1
+                                    for char in t:
+                                        if char not in counts:
+                                            return False
+                                        counts[char] -= 1
+                                        if counts[char] == 0:
+                                            del counts[char]
+                                    return not counts
                             """.trimIndent(),
                             customTests = """
                                 case_1 = {
-                                    "input": [5,4,8,11,None,13,4,7,2],
-                                    "target": 22,
-                                    "expected": True
+                                    "s": "anagram",
+                                    "t": "nagaram",
+                                    "expected": true
                                 }
                             """.trimIndent(),
                             hints = listOf(
-                                "Subtract the current node from the remaining target as you descend.",
-                                "The base case matters most at leaf nodes.",
-                                "This is simpler if you think in terms of remaining sum rather than accumulated sum."
+                                "Equal lengths are a quick early guard.",
+                                "Count characters from one string and cancel with the other."
                             )
                         ),
-                        ProblemListItem(
-                            id = "problem-lowest-common-ancestor",
-                            title = "Lowest Common Ancestor",
-                            summary = "Find the lowest node in a binary tree that has both targets in its subtree.",
-                            exampleInput = "root = [3,5,1,6,2,0,8,null,null,7,4], p = 5, q = 1",
-                            exampleOutput = "3",
-                            starterCode = """
-                                def lowest_common_ancestor(root, p, q):
-                                    if root is None or root == p or root == q:
-                                        return root
-                                    left = lowest_common_ancestor(root.left, p, q)
-                                    right = lowest_common_ancestor(root.right, p, q)
-                                    if left and right:
-                                        return root
-                                    return left or right
-                            """.trimIndent(),
-                            customTests = """
-                                case_1 = {
-                                    "input": [3,5,1,6,2,0,8,None,None,7,4],
-                                    "p": 5,
-                                    "q": 1,
-                                    "expected": 3
-                                }
-                            """.trimIndent(),
-                            hints = listOf(
-                                "A node can be the answer if one target is found on each side.",
-                                "Return matches upward so parents can detect the split.",
-                                "Short-circuit if the current node already equals one of the targets."
-                            )
-                        )
-                    )
-                ),
-                ProblemSetState(
-                    id = "set-arrays",
-                    title = "Arrays",
-                    problems = mutableStateListOf(
                         ProblemListItem(
                             id = "problem-two-sum",
                             title = "Two Sum",
+                            difficulty = "Easy",
                             solved = true,
-                            summary = "Given an array of integers and a target, return the indices of the two numbers that add up to the target.",
-                            exampleInput = "nums = [2, 7, 11, 15], target = 9",
-                            exampleOutput = "[0, 1]",
+                            summary = "Find the two indices whose values add up to the target.",
+                            exampleInput = "nums = [2,7,11,15], target = 9",
+                            exampleOutput = "[0,1]",
                             starterCode = """
-                                def two_sum(nums, target):
+                                def twoSum(nums, target):
                                     seen = {}
                                     for index, value in enumerate(nums):
-                                        complement = target - value
-                                        if complement in seen:
-                                            return [seen[complement], index]
+                                        needed = target - value
+                                        if needed in seen:
+                                            return [seen[needed], index]
                                         seen[value] = index
-                                    return []
                             """.trimIndent(),
                             customTests = """
                                 case_1 = {
@@ -431,177 +594,8 @@ private fun sampleFolders(): List<ProblemFolderState> {
                                 }
                             """.trimIndent(),
                             hints = listOf(
-                                "A hash map can trade space for time.",
-                                "For each number, ask whether its complement has already been seen.",
-                                "Store indices as you scan so you return the first valid pair immediately."
-                            )
-                        ),
-                        ProblemListItem(
-                            id = "problem-product-except-self",
-                            title = "Product Except Self",
-                            summary = "Build an output array where each position contains the product of all other elements.",
-                            exampleInput = "nums = [1, 2, 3, 4]",
-                            exampleOutput = "[24, 12, 8, 6]",
-                            starterCode = """
-                                def product_except_self(nums):
-                                    result = [1] * len(nums)
-                                    prefix = 1
-                                    for index in range(len(nums)):
-                                        result[index] = prefix
-                                        prefix *= nums[index]
-                                    suffix = 1
-                                    for index in range(len(nums) - 1, -1, -1):
-                                        result[index] *= suffix
-                                        suffix *= nums[index]
-                                    return result
-                            """.trimIndent(),
-                            customTests = """
-                                case_1 = {
-                                    "nums": [1, 2, 3, 4],
-                                    "expected": [24, 12, 8, 6]
-                                }
-                            """.trimIndent(),
-                            hints = listOf(
-                                "Think in terms of prefix and suffix products.",
-                                "You can avoid division entirely.",
-                                "A second pass from the right can fold in the suffix product."
-                            )
-                        )
-                    )
-                )
-            )
-        ),
-        ProblemFolderState(
-            id = "folder-graph-study",
-            title = "Graph Study",
-            sets = mutableStateListOf(
-                ProblemSetState(
-                    id = "set-graphs",
-                    title = "Graphs",
-                    problems = mutableStateListOf(
-                        ProblemListItem(
-                            id = "problem-number-of-islands",
-                            title = "Number of Islands",
-                            summary = "Count the number of connected land masses in a 2D grid using graph traversal.",
-                            exampleInput = "grid = [[1,1,0],[0,1,0],[1,0,1]]",
-                            exampleOutput = "3",
-                            starterCode = """
-                                def num_islands(grid):
-                                    rows = len(grid)
-                                    cols = len(grid[0]) if rows else 0
-                                    visited = set()
-
-                                    def dfs(row, col):
-                                        if (
-                                            row < 0 or row >= rows or
-                                            col < 0 or col >= cols or
-                                            grid[row][col] == 0 or
-                                            (row, col) in visited
-                                        ):
-                                            return
-                                        visited.add((row, col))
-                                        dfs(row + 1, col)
-                                        dfs(row - 1, col)
-                                        dfs(row, col + 1)
-                                        dfs(row, col - 1)
-
-                                    islands = 0
-                                    for row in range(rows):
-                                        for col in range(cols):
-                                            if grid[row][col] == 1 and (row, col) not in visited:
-                                                islands += 1
-                                                dfs(row, col)
-                                    return islands
-                            """.trimIndent(),
-                            customTests = """
-                                case_1 = {
-                                    "grid": [[1,1,0],[0,1,0],[1,0,1]],
-                                    "expected": 3
-                                }
-                            """.trimIndent(),
-                            hints = listOf(
-                                "Treat the grid as a graph where adjacent land cells are connected.",
-                                "Use DFS or BFS to mark an entire island once you find unvisited land.",
-                                "The answer increments only when you start a traversal from a fresh land cell."
-                            )
-                        ),
-                        ProblemListItem(
-                            id = "problem-course-schedule",
-                            title = "Course Schedule",
-                            summary = "Determine whether prerequisite dependencies contain a cycle.",
-                            exampleInput = "numCourses = 2, prerequisites = [[1,0]]",
-                            exampleOutput = "True",
-                            starterCode = """
-                                def can_finish(num_courses, prerequisites):
-                                    graph = {course: [] for course in range(num_courses)}
-                                    for course, prereq in prerequisites:
-                                        graph[course].append(prereq)
-
-                                    visiting = set()
-                                    visited = set()
-
-                                    def dfs(course):
-                                        if course in visiting:
-                                            return False
-                                        if course in visited:
-                                            return True
-                                        visiting.add(course)
-                                        for prereq in graph[course]:
-                                            if not dfs(prereq):
-                                                return False
-                                        visiting.remove(course)
-                                        visited.add(course)
-                                        return True
-
-                                    return all(dfs(course) for course in range(num_courses))
-                            """.trimIndent(),
-                            customTests = """
-                                case_1 = {
-                                    "num_courses": 2,
-                                    "prerequisites": [[1,0]],
-                                    "expected": True
-                                }
-                            """.trimIndent(),
-                            hints = listOf(
-                                "This is a cycle-detection problem on a directed graph.",
-                                "DFS with a visiting set is a standard pattern.",
-                                "Topological sort is another valid lens."
-                            )
-                        ),
-                        ProblemListItem(
-                            id = "problem-clone-graph",
-                            title = "Clone Graph",
-                            solved = true,
-                            summary = "Deep-copy an undirected graph starting from a given node.",
-                            exampleInput = "adjList = [[2,4],[1,3],[2,4],[1,3]]",
-                            exampleOutput = "A structurally identical deep copy",
-                            starterCode = """
-                                def clone_graph(node):
-                                    if node is None:
-                                        return None
-                                    clones = {}
-
-                                    def dfs(current):
-                                        if current in clones:
-                                            return clones[current]
-                                        copy = Node(current.val)
-                                        clones[current] = copy
-                                        for neighbor in current.neighbors:
-                                            copy.neighbors.append(dfs(neighbor))
-                                        return copy
-
-                                    return dfs(node)
-                            """.trimIndent(),
-                            customTests = """
-                                case_1 = {
-                                    "graph": [[2,4],[1,3],[2,4],[1,3]],
-                                    "expected": "deep copy"
-                                }
-                            """.trimIndent(),
-                            hints = listOf(
-                                "You need a mapping from original nodes to cloned nodes.",
-                                "DFS or BFS both work.",
-                                "Be careful not to recreate the same node more than once."
+                                "Track prior values in a map keyed by number.",
+                                "For each value, check whether its complement has already appeared."
                             )
                         )
                     )
@@ -611,17 +605,83 @@ private fun sampleFolders(): List<ProblemFolderState> {
     )
 }
 
+private fun resolveSelection(folders: List<ProblemFolderState>): Pair<String, String> {
+    val allSets = folders.flatMap { it.sets }
+    val selectedSetId = allSets
+        .firstOrNull { set -> set.problems.any { it.active } }
+        ?.id
+        ?: folders.firstOrNull()?.sets?.firstOrNull()?.id.orEmpty()
+    val selectedProblemId = allSets
+        .flatMap { it.problems }
+        .firstOrNull { it.active }
+        ?.id
+        ?: folders.firstOrNull()?.sets?.firstOrNull()?.problems?.firstOrNull()?.id.orEmpty()
+    return selectedSetId to selectedProblemId
+}
+
+private fun updateActiveProblemSelection(
+    folders: List<ProblemFolderState>,
+    selectedProblemSetId: String,
+    selectedProblemId: String
+) {
+    folders.flatMap { it.sets }.forEach { set ->
+        val updated = set.problems.map { item ->
+            item.copy(active = set.id == selectedProblemSetId && item.id == selectedProblemId)
+        }
+        set.problems.clear()
+        set.problems.addAll(updated)
+    }
+}
+
+private fun List<ProblemFolderState>.deepCopy(): List<ProblemFolderState> {
+    return map { folder ->
+        ProblemFolderState(
+            id = folder.id,
+            title = folder.title,
+            sets = mutableStateListOf<ProblemSetState>().apply {
+                addAll(
+                    folder.sets.map { set ->
+                        ProblemSetState(
+                            id = set.id,
+                            title = set.title,
+                            problems = mutableStateListOf<ProblemListItem>().apply {
+                                addAll(set.problems.map { it.copy() })
+                            }
+                        )
+                    }
+                )
+            }
+        )
+    }
+}
+
 @Preview(widthDp = 1280, heightDp = 800, showBackground = true)
 @Composable
 private fun LandscapeWorkspacePreview() {
     StandaloneCodePracticeTheme {
         LandscapeWorkspaceScreen(
+            problemCatalogRepository = ProblemCatalogRepository(
+                problemCatalogDao = object : dev.kaixinguo.standalonecodepractice.data.local.ProblemCatalogDao {
+                    override suspend fun getFolders() = emptyList<dev.kaixinguo.standalonecodepractice.data.local.ProblemFolderEntity>()
+                    override suspend fun getSets() = emptyList<dev.kaixinguo.standalonecodepractice.data.local.ProblemSetEntity>()
+                    override suspend fun getProblems() = emptyList<dev.kaixinguo.standalonecodepractice.data.local.StoredProblemEntity>()
+                    override suspend fun insertFolders(folders: List<dev.kaixinguo.standalonecodepractice.data.local.ProblemFolderEntity>) = Unit
+                    override suspend fun insertSets(sets: List<dev.kaixinguo.standalonecodepractice.data.local.ProblemSetEntity>) = Unit
+                    override suspend fun insertProblems(problems: List<dev.kaixinguo.standalonecodepractice.data.local.StoredProblemEntity>) = Unit
+                    override suspend fun clearProblems() = Unit
+                    override suspend fun clearSets() = Unit
+                    override suspend fun clearFolders() = Unit
+                }
+            ),
             workspaceDocumentRepository = WorkspaceDocumentRepository(
                 workspaceDocumentDao = object : dev.kaixinguo.standalonecodepractice.data.local.WorkspaceDocumentDao {
                     override suspend fun getByProblemId(problemId: String) = null
                     override suspend fun upsert(document: dev.kaixinguo.standalonecodepractice.data.local.WorkspaceDocumentEntity) = Unit
                 }
-            )
+            ),
+            gitHubMarkdownImportService = GitHubMarkdownImportService(),
+            localPythonExecutionService = LocalPythonExecutionService(androidx.compose.ui.platform.LocalContext.current),
+            seedCatalogProvider = { previewCatalog() }
         )
     }
 }

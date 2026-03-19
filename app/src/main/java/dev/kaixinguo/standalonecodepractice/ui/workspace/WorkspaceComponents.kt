@@ -23,11 +23,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -114,6 +118,71 @@ internal fun ExampleValueBlock(
 }
 
 @Composable
+internal fun MarkdownStatementText(
+    markdown: String,
+    modifier: Modifier = Modifier
+) {
+    val blocks = remember(markdown) { markdownToBlocks(markdown) }
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        blocks.forEach { block ->
+            when (block) {
+                is MarkdownBlock.Paragraph -> {
+                    Text(
+                        text = buildMarkdownAnnotatedString(block.text),
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                is MarkdownBlock.Heading -> {
+                    Text(
+                        text = buildMarkdownAnnotatedString(block.text),
+                        color = TextPrimary,
+                        style = if (block.level <= 2) {
+                            MaterialTheme.typography.titleMedium
+                        } else {
+                            MaterialTheme.typography.titleSmall
+                        }
+                    )
+                }
+                is MarkdownBlock.Bullet -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "-",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = buildMarkdownAnnotatedString(block.text),
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+                is MarkdownBlock.CodeFence -> {
+                    Surface(
+                        color = Color(0xFF1A2230),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, CardBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = block.code,
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun EditableSupportTextBlock(
     value: String,
     onValueChange: (String) -> Unit,
@@ -136,6 +205,53 @@ internal fun EditableSupportTextBlock(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp)
+        )
+    }
+}
+
+@Composable
+internal fun CustomCaseEditor(
+    testCase: ProblemTestCase,
+    onCaseChange: (ProblemTestCase) -> Unit,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    CardBlock(
+        title = testCase.label,
+        modifier = modifier.fillMaxWidth(),
+        trailing = {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                PlainActionChip(
+                    label = if (testCase.enabled) "Enabled" else "Disabled"
+                ) {
+                    onCaseChange(testCase.copy(enabled = !testCase.enabled))
+                }
+                PlainActionChip("Remove", onClick = onRemove)
+            }
+        }
+    ) {
+        Text(
+            text = "Input",
+            color = TextSecondary,
+            style = MaterialTheme.typography.labelSmall
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        EditableSupportTextBlock(
+            value = testCase.stdin,
+            onValueChange = { onCaseChange(testCase.copy(stdin = it)) },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Expected Output",
+            color = TextSecondary,
+            style = MaterialTheme.typography.labelSmall
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        EditableSupportTextBlock(
+            value = testCase.expectedOutput,
+            onValueChange = { onCaseChange(testCase.copy(expectedOutput = it)) },
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -272,13 +388,14 @@ internal fun StackIcon() {
 @Composable
 internal fun PlainActionChip(
     label: String,
+    modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
     Surface(
         color = CardBackgroundAlt,
         shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, CardBorder),
-        modifier = if (onClick != null) Modifier.clickable { onClick() } else Modifier
+        modifier = if (onClick != null) modifier.clickable { onClick() } else modifier
     ) {
         Text(
             text = label,
@@ -335,6 +452,145 @@ internal fun RailModeButton(
             )
         }
     }
+}
+
+private sealed interface MarkdownBlock {
+    data class Paragraph(val text: String) : MarkdownBlock
+    data class Heading(val level: Int, val text: String) : MarkdownBlock
+    data class Bullet(val text: String) : MarkdownBlock
+    data class CodeFence(val code: String) : MarkdownBlock
+}
+
+private fun markdownToBlocks(markdown: String): List<MarkdownBlock> {
+    if (markdown.isBlank()) return emptyList()
+
+    val blocks = mutableListOf<MarkdownBlock>()
+    val paragraphLines = mutableListOf<String>()
+    val codeFenceLines = mutableListOf<String>()
+    var inCodeFence = false
+
+    fun flushParagraph() {
+        if (paragraphLines.isEmpty()) return
+        blocks += MarkdownBlock.Paragraph(paragraphLines.joinToString("\n").trim())
+        paragraphLines.clear()
+    }
+
+    fun flushCodeFence() {
+        if (codeFenceLines.isEmpty()) return
+        blocks += MarkdownBlock.CodeFence(codeFenceLines.joinToString("\n").trimEnd())
+        codeFenceLines.clear()
+    }
+
+    markdown.lines().forEach { rawLine ->
+        val trimmedEnd = rawLine.trimEnd()
+        val normalized = trimmedEnd.trim()
+
+        if (normalized.startsWith("```")) {
+            if (inCodeFence) {
+                flushCodeFence()
+            } else {
+                flushParagraph()
+            }
+            inCodeFence = !inCodeFence
+            return@forEach
+        }
+
+        if (inCodeFence) {
+            codeFenceLines += rawLine
+            return@forEach
+        }
+
+        if (normalized.isBlank()) {
+            flushParagraph()
+            return@forEach
+        }
+
+        val headingMatch = Regex("""^(#{1,6})\s+(.*)$""").matchEntire(normalized)
+        if (headingMatch != null) {
+            flushParagraph()
+            blocks += MarkdownBlock.Heading(
+                level = headingMatch.groupValues[1].length,
+                text = headingMatch.groupValues[2].trim()
+            )
+            return@forEach
+        }
+
+        if (normalized.startsWith("- ") || normalized.startsWith("* ")) {
+            flushParagraph()
+            blocks += MarkdownBlock.Bullet(text = normalized.drop(2).trim())
+            return@forEach
+        }
+
+        paragraphLines += trimmedEnd
+    }
+
+    flushParagraph()
+    flushCodeFence()
+    return blocks
+}
+
+private fun buildMarkdownAnnotatedString(markdown: String): AnnotatedString {
+    return buildAnnotatedString {
+        var index = 0
+        while (index < markdown.length) {
+            if (markdown.startsWith("**", index)) {
+                val closing = markdown.indexOf("**", startIndex = index + 2)
+                if (closing > index + 2) {
+                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold, color = TextPrimary))
+                    append(markdown.substring(index + 2, closing))
+                    pop()
+                    index = closing + 2
+                    continue
+                }
+            }
+
+            if (markdown[index] == '`') {
+                val closing = markdown.indexOf('`', startIndex = index + 1)
+                if (closing > index + 1) {
+                    pushStyle(
+                        SpanStyle(
+                            fontFamily = FontFamily.Monospace,
+                            color = TextPrimary
+                        )
+                    )
+                    append(markdown.substring(index + 1, closing))
+                    pop()
+                    index = closing + 1
+                    continue
+                }
+            }
+
+            append(markdown[index])
+            index += 1
+        }
+    }
+}
+
+private fun markdownToDisplayText(markdown: String): String {
+    val renderedLines = mutableListOf<String>()
+    var inCodeFence = false
+
+    markdown.lines().forEach { rawLine ->
+        val trimmed = rawLine.trimEnd()
+        val normalized = trimmed.trim()
+
+        if (normalized.startsWith("```")) {
+            inCodeFence = !inCodeFence
+            return@forEach
+        }
+
+        renderedLines += when {
+            normalized.startsWith("#") -> normalized.trimStart('#', ' ')
+            normalized.startsWith("- ") -> "• ${normalized.removePrefix("- ").trim()}"
+            inCodeFence -> rawLine
+            else -> trimmed
+        }
+    }
+
+    return renderedLines
+        .joinToString("\n")
+        .replace(Regex("""\n{3,}"""), "\n\n")
+        .trim()
 }
 
 @Composable

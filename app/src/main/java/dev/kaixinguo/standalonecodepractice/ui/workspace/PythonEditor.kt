@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,13 +32,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -61,6 +70,8 @@ private val PythonKeywords = setOf(
     "in", "is", "lambda", "None", "nonlocal", "not", "or", "pass", "raise", "return",
     "True", "try", "while", "with", "yield"
 )
+
+private const val PythonIndent = "    "
 
 @Composable
 internal fun UnifiedWorkspaceSurface(
@@ -349,7 +360,18 @@ private fun EditablePythonSurface(
     modifier: Modifier = Modifier
 ) {
     val lines = remember(code) { code.lines().size.coerceAtLeast(1) }
-    val scrollState = rememberScrollState()
+    val verticalScrollState = rememberScrollState()
+    val horizontalScrollState = rememberScrollState()
+    var editorValue by remember {
+        mutableStateOf(TextFieldValue(text = code))
+    }
+
+    if (editorValue.text != code) {
+        editorValue = editorValue.copy(
+            text = code,
+            selection = TextRange(code.length.coerceAtMost(editorValue.selection.end))
+        )
+    }
 
     Surface(
         modifier = modifier,
@@ -360,7 +382,7 @@ private fun EditablePythonSurface(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(scrollState)
+                .verticalScroll(verticalScrollState)
                 .padding(horizontal = 14.dp, vertical = 16.dp)
         ) {
             Column(
@@ -378,32 +400,71 @@ private fun EditablePythonSurface(
                 }
             }
             Spacer(modifier = Modifier.width(14.dp))
-            BasicTextField(
-                value = code,
-                onValueChange = onCodeChange,
-                readOnly = readOnly,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = TextPrimary,
-                    fontFamily = FontFamily.Monospace
-                ),
-                cursorBrush = SolidColor(AccentBlue),
-                visualTransformation = PythonSyntaxVisualTransformation,
-                modifier = Modifier.weight(1f),
-                decorationBox = { innerTextField ->
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        if (code.isEmpty()) {
-                            Text(
-                                text = "Write your Python solution here...",
-                                color = TextMuted,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontFamily = FontFamily.Monospace
-                            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(horizontalScrollState)
+            ) {
+                BasicTextField(
+                    value = editorValue,
+                    onValueChange = { updatedValue ->
+                        editorValue = updatedValue
+                        onCodeChange(updatedValue.text)
+                    },
+                    readOnly = readOnly,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = TextPrimary,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    cursorBrush = SolidColor(AccentBlue),
+                    visualTransformation = PythonSyntaxVisualTransformation,
+                    modifier = Modifier
+                        .wrapContentWidth(unbounded = true)
+                        .onPreviewKeyEvent { keyEvent ->
+                            if (
+                                !readOnly &&
+                                keyEvent.type == KeyEventType.KeyDown &&
+                                keyEvent.key == Key.Tab
+                            ) {
+                                val updatedValue = insertIndent(editorValue)
+                                editorValue = updatedValue
+                                onCodeChange(updatedValue.text)
+                                true
+                            } else {
+                                false
+                            }
+                        },
+                    decorationBox = { innerTextField ->
+                        Box(modifier = Modifier.wrapContentWidth(unbounded = true)) {
+                            if (editorValue.text.isEmpty()) {
+                                Text(
+                                    text = "Write your Python solution here...",
+                                    color = TextMuted,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            innerTextField()
                         }
-                        innerTextField()
                     }
-                }
-            )
+                )
+            }
         }
     }
+}
+
+private fun insertIndent(value: TextFieldValue): TextFieldValue {
+    val start = value.selection.start
+    val end = value.selection.end
+    val updatedText = buildString {
+        append(value.text.substring(0, start))
+        append(PythonIndent)
+        append(value.text.substring(end))
+    }
+    val updatedCursor = start + PythonIndent.length
+    return value.copy(
+        text = updatedText,
+        selection = TextRange(updatedCursor)
+    )
 }
 
