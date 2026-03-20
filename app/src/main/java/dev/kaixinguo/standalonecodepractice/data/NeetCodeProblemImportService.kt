@@ -15,7 +15,8 @@ internal data class ImportedNeetCodeProblem(
     val exampleOutput: String,
     val starterCode: String,
     val hints: List<String>,
-    val questionUrl: String
+    val questionUrl: String,
+    val executionPipeline: String
 )
 
 internal class NeetCodeProblemImportService {
@@ -67,7 +68,11 @@ internal class NeetCodeProblemImportService {
             exampleOutput = extractExampleOutput(statementMarkdown),
             starterCode = starterCode,
             hints = hints,
-            questionUrl = questionUrl
+            questionUrl = questionUrl,
+            executionPipeline = ProblemExecutionPipelineResolver.infer(
+                title = title,
+                starterCode = starterCode
+            ).storageValue
         )
     }
 

@@ -51,7 +51,16 @@ internal class GitHubMarkdownImportService {
                                         exampleOutput = problem.exampleOutput,
                                         starterCode = "",
                                         customTests = "",
-                                        hints = emptyList()
+                                        hints = emptyList(),
+                                        submissionTestSuite = ProblemSubmissionSuiteFactory.build(
+                                            statementMarkdown = problem.statementMarkdown,
+                                            exampleInput = problem.exampleInput,
+                                            exampleOutput = problem.exampleOutput
+                                        ),
+                                        executionPipeline = ProblemExecutionPipelineResolver.infer(
+                                            title = problem.title,
+                                            starterCode = ""
+                                        )
                                     ).let { item ->
                                         if (index == 0 && entry.key.rawTitle == firstSetTitle) {
                                             item.copy(active = true)

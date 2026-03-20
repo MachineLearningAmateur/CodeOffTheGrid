@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "StandaloneCodePractice"
 include(":app")
+include(":llamaandroid")

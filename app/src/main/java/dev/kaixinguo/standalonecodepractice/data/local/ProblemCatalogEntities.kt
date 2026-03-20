@@ -33,5 +33,7 @@ internal data class StoredProblemEntity(
     val starterCode: String,
     val customTests: String,
     val hintsJson: String,
+    val submissionTestSuiteJson: String,
+    val executionPipeline: String,
     val sortIndex: Int
 )

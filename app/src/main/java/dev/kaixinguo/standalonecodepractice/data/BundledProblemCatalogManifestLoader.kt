@@ -34,6 +34,7 @@ internal data class ProblemManifestEntry(
     val title: String,
     val difficulty: String,
     val contentStatus: String,
+    val executionPipeline: String,
     val questionUrl: String,
     val solutionUrl: String,
     val leetcodeUrl: String
@@ -93,6 +94,7 @@ internal class BundledProblemCatalogManifestLoader(
             title = getString("title"),
             difficulty = optString("difficulty"),
             contentStatus = optString("contentStatus", "unknown"),
+            executionPipeline = optString("executionPipeline", "single_method"),
             questionUrl = optString("questionUrl"),
             solutionUrl = optString("solutionUrl"),
             leetcodeUrl = optString("leetcodeUrl")

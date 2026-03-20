@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProblemSetEntity::class,
         StoredProblemEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 internal abstract class StandaloneCodePracticeDatabase : RoomDatabase() {
@@ -63,6 +63,7 @@ internal abstract class StandaloneCodePracticeDatabase : RoomDatabase() {
                         `starterCode` TEXT NOT NULL,
                         `customTests` TEXT NOT NULL,
                         `hintsJson` TEXT NOT NULL,
+                        `executionPipeline` TEXT NOT NULL DEFAULT 'single_method',
                         `sortIndex` INTEGER NOT NULL,
                         PRIMARY KEY(`id`)
                     )
@@ -82,6 +83,28 @@ internal abstract class StandaloneCodePracticeDatabase : RoomDatabase() {
             }
         }
 
+        private val migration3To4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    ALTER TABLE `problems`
+                    ADD COLUMN `executionPipeline` TEXT NOT NULL DEFAULT 'single_method'
+                    """.trimIndent()
+                )
+            }
+        }
+
+        private val migration4To5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    ALTER TABLE `problems`
+                    ADD COLUMN `submissionTestSuiteJson` TEXT NOT NULL DEFAULT ''
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getInstance(context: Context): StandaloneCodePracticeDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -89,7 +112,7 @@ internal abstract class StandaloneCodePracticeDatabase : RoomDatabase() {
                     StandaloneCodePracticeDatabase::class.java,
                     "standalone-code-practice.db"
                 )
-                    .addMigrations(migration1To2, migration2To3)
+                    .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5)
                     .build()
                     .also { database ->
                     instance = database

@@ -6,6 +6,7 @@ import com.chaquo.python.android.AndroidPlatform
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ExecutionStatus
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ExecutionTarget
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemExecutionResult
+import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemExecutionPipeline
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestCase
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestCaseResult
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestSuite
@@ -25,30 +26,35 @@ internal class LocalPythonExecutionService(
     }
 
     suspend fun runCustomSuite(
-        customTestSuite: ProblemTestSuite,
-        draftCode: String
+        testSuite: ProblemTestSuite,
+        draftCode: String,
+        executionPipeline: ProblemExecutionPipeline = ProblemExecutionPipeline.SingleMethod
     ): ProblemExecutionResult = execute(
         target = ExecutionTarget.Custom,
         title = "Custom Run",
         draftCode = draftCode,
-        customTestSuite = customTestSuite
+        executionPipeline = executionPipeline,
+        testSuite = testSuite
     )
 
     suspend fun runLocalSubmission(
-        customTestSuite: ProblemTestSuite,
-        draftCode: String
+        testSuite: ProblemTestSuite,
+        draftCode: String,
+        executionPipeline: ProblemExecutionPipeline = ProblemExecutionPipeline.SingleMethod
     ): ProblemExecutionResult = execute(
         target = ExecutionTarget.LocalSubmission,
         title = "Local Submission",
         draftCode = draftCode,
-        customTestSuite = customTestSuite
+        executionPipeline = executionPipeline,
+        testSuite = testSuite
     )
 
     private suspend fun execute(
         target: ExecutionTarget,
         title: String,
         draftCode: String,
-        customTestSuite: ProblemTestSuite
+        executionPipeline: ProblemExecutionPipeline,
+        testSuite: ProblemTestSuite
     ): ProblemExecutionResult = withContext(Dispatchers.Default) {
         runCatching {
             val python = Python.getInstance()
@@ -56,7 +62,7 @@ internal class LocalPythonExecutionService(
             val payload = module.callAttr(
                 "run_suite",
                 draftCode,
-                encodeSuite(customTestSuite)
+                encodeSuite(testSuite, executionPipeline)
             ).toString()
             decodeResult(
                 target = target,
@@ -74,9 +80,12 @@ internal class LocalPythonExecutionService(
         }
     }
 
-    private fun encodeSuite(customTestSuite: ProblemTestSuite): String {
+    private fun encodeSuite(
+        testSuite: ProblemTestSuite,
+        executionPipeline: ProblemExecutionPipeline
+    ): String {
         val cases = JSONArray()
-        customTestSuite.cases.forEach { testCase ->
+        testSuite.cases.forEach { testCase ->
             cases.put(
                 JSONObject()
                     .put("id", testCase.id)
@@ -84,10 +93,18 @@ internal class LocalPythonExecutionService(
                     .put("stdin", testCase.stdin)
                     .put("expectedOutput", testCase.expectedOutput)
                     .put("enabled", testCase.enabled)
+                    .put("comparisonMode", testCase.comparisonMode.storageValue)
+                    .put(
+                        "acceptableOutputs",
+                        JSONArray().apply {
+                            testCase.acceptableOutputs.forEach { put(it) }
+                        }
+                    )
             )
         }
         return JSONObject()
-            .put("draft", customTestSuite.draft)
+            .put("draft", testSuite.draft)
+            .put("executionPipeline", executionPipeline.storageValue)
             .put("cases", cases)
             .toString()
     }
@@ -99,6 +116,12 @@ internal class LocalPythonExecutionService(
     ): ProblemExecutionResult {
         val json = JSONObject(payload)
         val casesJson = json.optJSONArray("cases") ?: JSONArray()
+        val normalizedSummary = when (target) {
+            ExecutionTarget.Custom -> json.optString("summary")
+            ExecutionTarget.LocalSubmission -> json.optString("summary")
+                .replace("enabled custom cases", "enabled built-in submission cases")
+                .replace("local checks", "local submission")
+        }
         return ProblemExecutionResult(
             target = target,
             status = when (json.optString("status").lowercase()) {
@@ -114,7 +137,7 @@ internal class LocalPythonExecutionService(
                 "error" -> "$title Error"
                 else -> title
             },
-            summary = json.optString("summary"),
+            summary = normalizedSummary,
             cases = List(casesJson.length()) { index ->
                 casesJson.getJSONObject(index).toCaseResult()
             },
@@ -134,6 +157,7 @@ internal class LocalPythonExecutionService(
                 "skipped" -> TestCaseStatus.Skipped
                 else -> TestCaseStatus.Pending
             },
+            input = optString("input"),
             actualOutput = optString("actualOutput"),
             expectedOutput = optString("expectedOutput"),
             errorOutput = optString("errorOutput"),

@@ -21,3 +21,13 @@ Thumbs.db
 
 # Android captures
 captures/
+
+# Python caches
+__pycache__/
+*.pyc
+scripts/.cache/
+
+# Local debug artifacts
+window_dump*.xml
+emulator-*.png
+tmp-*.png

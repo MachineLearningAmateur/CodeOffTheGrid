@@ -3,6 +3,7 @@ package dev.kaixinguo.standalonecodepractice.ui.workspace
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
+import dev.kaixinguo.standalonecodepractice.R
 import java.util.UUID
 
 internal data class ProblemListItem(
@@ -17,7 +18,9 @@ internal data class ProblemListItem(
     val exampleOutput: String = "",
     val starterCode: String = "",
     val customTests: String = "",
-    val hints: List<String> = emptyList()
+    val hints: List<String> = emptyList(),
+    val submissionTestSuite: ProblemTestSuite = ProblemTestSuite(),
+    val executionPipeline: ProblemExecutionPipeline = ProblemExecutionPipeline.SingleMethod
 )
 
 internal data class ProblemSetState(
@@ -47,6 +50,7 @@ internal data class InsertionTarget(
 
 internal enum class SidebarMode(val label: String) {
     Problems("Problems"),
+    Stats("Stats"),
     AskAi("Ask AI"),
     Settings("Settings")
 }
@@ -89,13 +93,46 @@ internal data class ProblemTestCase(
     val label: String = "Case",
     val stdin: String = "",
     val expectedOutput: String = "",
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val comparisonMode: ProblemTestComparisonMode = ProblemTestComparisonMode.Exact,
+    val acceptableOutputs: List<String> = emptyList()
 )
 
 internal data class ProblemTestSuite(
     val draft: String = "",
     val cases: List<ProblemTestCase> = emptyList()
 )
+
+internal enum class ProblemExecutionPipeline(val storageValue: String) {
+    SingleMethod("single_method"),
+    EncodeDecodeRoundTrip("encode_decode_round_trip"),
+    SerializeDeserializeRoundTrip("serialize_deserialize_round_trip"),
+    OperationSequence("operation_sequence");
+
+    companion object {
+        fun fromStorage(value: String): ProblemExecutionPipeline {
+            return entries.firstOrNull { it.storageValue == value }
+                ?: SingleMethod
+        }
+    }
+}
+
+internal enum class ProblemTestComparisonMode(val storageValue: String) {
+    Exact("exact"),
+    UnorderedTopLevel("unordered_top_level"),
+    UnorderedNestedCollections("unordered_nested_collections"),
+    TreeNodeValue("tree_node_value"),
+    OneOf("one_of"),
+    TopologicalOrder("topological_order"),
+    AlienDictionaryOrder("alien_dictionary_order");
+
+    companion object {
+        fun fromStorage(value: String): ProblemTestComparisonMode {
+            return entries.firstOrNull { it.storageValue == value }
+                ?: Exact
+        }
+    }
+}
 
 internal enum class ExecutionTarget {
     Custom,
@@ -122,6 +159,7 @@ internal data class ProblemTestCaseResult(
     val testCaseId: String,
     val label: String,
     val status: TestCaseStatus,
+    val input: String = "",
     val actualOutput: String = "",
     val expectedOutput: String = "",
     val errorOutput: String = "",
@@ -145,14 +183,14 @@ internal data class ProblemWorkspaceDocument(
     val sketches: List<SketchStroke>
 )
 
-internal enum class ArrowDirection(val glyph: String) {
-    Expand(">"),
-    Collapse("<")
+internal enum class ArrowDirection(val iconRes: Int) {
+    Expand(R.drawable.ic_chevron_right),
+    Collapse(R.drawable.ic_chevron_left)
 }
 
 internal fun SidebarMode.shortLabel(): String = when (this) {
     SidebarMode.Problems -> "List"
+    SidebarMode.Stats -> "Prog"
     SidebarMode.AskAi -> "AI"
     SidebarMode.Settings -> "Set"
 }
-

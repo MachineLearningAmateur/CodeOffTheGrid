@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -44,6 +45,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
@@ -52,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentBlue
 import dev.kaixinguo.standalonecodepractice.ui.theme.CardBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.CardBorder
+import dev.kaixinguo.standalonecodepractice.ui.theme.InsetSurface
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextMuted
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextPrimary
 import kotlin.math.ceil
@@ -89,6 +93,7 @@ internal fun UnifiedWorkspaceSurface(
 ) {
     var activeStrokeColor by remember { mutableStateOf(activeColor) }
     var eraserCursor by remember { mutableStateOf<Offset?>(null) }
+    val eraserOutlineColor = TextPrimary.copy(alpha = 0.6f)
     val activeStroke = remember(activeStrokePoints, activeColor) {
         if (activeStrokePoints.isEmpty()) null else SketchStroke(activeStrokePoints, activeStrokeColor)
     }
@@ -180,7 +185,7 @@ internal fun UnifiedWorkspaceSurface(
                         center = eraserCursor!!
                     )
                     drawCircle(
-                        color = TextPrimary.copy(alpha = 0.6f),
+                        color = eraserOutlineColor,
                         radius = eraserSize.radius,
                         center = eraserCursor!!,
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
@@ -375,7 +380,7 @@ private fun EditablePythonSurface(
 
     Surface(
         modifier = modifier,
-        color = Color(0xFF1A2230),
+        color = InsetSurface,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, CardBorder)
     ) {
@@ -417,6 +422,11 @@ private fun EditablePythonSurface(
                         fontFamily = FontFamily.Monospace
                     ),
                     cursorBrush = SolidColor(AccentBlue),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = false,
+                        keyboardType = KeyboardType.Ascii
+                    ),
                     visualTransformation = PythonSyntaxVisualTransformation,
                     modifier = Modifier
                         .wrapContentWidth(unbounded = true)

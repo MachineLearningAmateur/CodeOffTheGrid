@@ -47,11 +47,13 @@ android {
 
 chaquopy {
     defaultConfig {
-        version = "3.11"
+        version = "3.12"
+        buildPython("C:/Python312/python.exe")
     }
 }
 
 dependencies {
+    implementation(project(":llamaandroid"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -64,6 +66,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

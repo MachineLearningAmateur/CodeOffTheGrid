@@ -4,14 +4,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import dev.kaixinguo.standalonecodepractice.ai.DefaultAiAssistant
+import dev.kaixinguo.standalonecodepractice.ai.DefaultPromptBuilder
+import dev.kaixinguo.standalonecodepractice.ai.OnDeviceLlamaCppQwenEngine
 import dev.kaixinguo.standalonecodepractice.data.BundledProblemCatalogLoader
-import dev.kaixinguo.standalonecodepractice.data.GitHubMarkdownImportService
 import dev.kaixinguo.standalonecodepractice.data.LocalPythonExecutionService
 import dev.kaixinguo.standalonecodepractice.data.ProblemCatalogRepository
 import dev.kaixinguo.standalonecodepractice.data.WorkspaceDocumentRepository
 import dev.kaixinguo.standalonecodepractice.data.local.StandaloneCodePracticeDatabase
-import dev.kaixinguo.standalonecodepractice.ui.workspace.LandscapeWorkspaceScreen
+import dev.kaixinguo.standalonecodepractice.ui.theme.AppThemeMode
 import dev.kaixinguo.standalonecodepractice.ui.theme.StandaloneCodePracticeTheme
+import dev.kaixinguo.standalonecodepractice.ui.workspace.LandscapeWorkspaceScreen
 
 class MainActivity : ComponentActivity() {
     private val database by lazy {
@@ -32,25 +39,67 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private val gitHubMarkdownImportService by lazy { GitHubMarkdownImportService() }
     private val localPythonExecutionService by lazy {
         LocalPythonExecutionService(applicationContext)
+    }
+
+    private val aiRuntimeController by lazy {
+        OnDeviceLlamaCppQwenEngine(
+            context = applicationContext,
+            sharedPreferences = getSharedPreferences(APP_SETTINGS_PREFS, MODE_PRIVATE)
+        )
+    }
+
+    private val aiAssistant by lazy {
+        DefaultAiAssistant(
+            promptBuilder = DefaultPromptBuilder(),
+            localQwenEngine = aiRuntimeController
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            StandaloneCodePracticeTheme {
+            val appSettings = remember {
+                getSharedPreferences(APP_SETTINGS_PREFS, MODE_PRIVATE)
+            }
+            var themeMode by remember {
+                mutableStateOf(
+                    AppThemeMode.fromStorageValue(
+                        appSettings.getString(KEY_THEME_MODE, null)
+                    )
+                )
+            }
+
+            StandaloneCodePracticeTheme(themeMode = themeMode) {
                 LandscapeWorkspaceScreen(
                     problemCatalogRepository = problemCatalogRepository,
                     workspaceDocumentRepository = workspaceDocumentRepository,
-                    gitHubMarkdownImportService = gitHubMarkdownImportService,
                     localPythonExecutionService = localPythonExecutionService,
-                    seedCatalogProvider = { bundledProblemCatalogLoader.loadCatalog() }
+                    aiAssistant = aiAssistant,
+                    aiRuntimeController = aiRuntimeController,
+                    seedCatalogProvider = { bundledProblemCatalogLoader.loadCatalog() },
+                    themeMode = themeMode,
+                    onThemeModeChange = { selectedMode ->
+                        themeMode = selectedMode
+                        appSettings.edit()
+                            .putString(KEY_THEME_MODE, selectedMode.storageValue)
+                            .apply()
+                    }
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        aiRuntimeController.destroy()
+        super.onDestroy()
+    }
+
+    private companion object {
+        const val APP_SETTINGS_PREFS = "app_settings"
+        const val KEY_THEME_MODE = "theme_mode"
     }
 }
 

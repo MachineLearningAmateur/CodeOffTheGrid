@@ -1,5 +1,6 @@
 package dev.kaixinguo.standalonecodepractice.ui.workspace
 
+import android.database.sqlite.SQLiteBlobTooBigException
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -7,14 +8,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.kaixinguo.standalonecodepractice.data.GitHubMarkdownImportService
+import dev.kaixinguo.standalonecodepractice.ai.AiAssistant
+import dev.kaixinguo.standalonecodepractice.ai.AiRuntimeController
+import dev.kaixinguo.standalonecodepractice.ai.AiRuntimePhase
+import dev.kaixinguo.standalonecodepractice.ai.AiRuntimeState
 import dev.kaixinguo.standalonecodepractice.data.LocalPythonExecutionService
 import dev.kaixinguo.standalonecodepractice.data.ProblemCatalogRepository
 import dev.kaixinguo.standalonecodepractice.data.WorkspaceDocumentRepository
 import dev.kaixinguo.standalonecodepractice.ui.theme.AppBackground
+import dev.kaixinguo.standalonecodepractice.ui.theme.AppThemeMode
+import dev.kaixinguo.standalonecodepractice.ui.theme.SidebarBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.StandaloneCodePracticeTheme
 import kotlinx.coroutines.launch
 
@@ -22,22 +27,30 @@ import kotlinx.coroutines.launch
 internal fun LandscapeWorkspaceScreen(
     problemCatalogRepository: ProblemCatalogRepository,
     workspaceDocumentRepository: WorkspaceDocumentRepository,
-    gitHubMarkdownImportService: GitHubMarkdownImportService,
     localPythonExecutionService: LocalPythonExecutionService,
+    aiAssistant: AiAssistant,
+    aiRuntimeController: AiRuntimeController,
     seedCatalogProvider: suspend () -> List<ProblemFolderState>,
+    themeMode: AppThemeMode,
+    onThemeModeChange: (AppThemeMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val folders = remember { mutableStateListOf<ProblemFolderState>() }
+    var protectedFolderIds by remember { mutableStateOf(emptySet<String>()) }
+    var protectedSetIds by remember { mutableStateOf(emptySet<String>()) }
+    var protectedProblemIds by remember { mutableStateOf(emptySet<String>()) }
     var selectedProblemId by remember { mutableStateOf("") }
     var selectedProblemSetId by remember { mutableStateOf("") }
     var sidebarMode by remember { mutableStateOf(SidebarMode.Problems) }
     var sidebarCollapsed by remember { mutableStateOf(false) }
+    var askAiFullscreen by remember { mutableStateOf(false) }
     var workspaceInputMode by remember { mutableStateOf(WorkspaceInputMode.Keyboard) }
     val sketchStrokes = remember { mutableStateListOf<SketchStroke>() }
     var currentDraftCode by remember { mutableStateOf("") }
     var currentCustomTestSuite by remember { mutableStateOf(ProblemTestSuite()) }
-    var importInProgress by remember { mutableStateOf(false) }
-    var importFeedback by remember { mutableStateOf<String?>(null) }
+    var currentCustomExecutionResult by remember { mutableStateOf(defaultExecutionResult(ExecutionTarget.Custom)) }
+    var currentSubmissionExecutionResult by remember { mutableStateOf(defaultExecutionResult(ExecutionTarget.LocalSubmission)) }
+    var selectedSupportTab by remember { mutableStateOf(SupportTab.Problem) }
     val scope = rememberCoroutineScope()
     val sidebarWidth by animateDpAsState(
         targetValue = if (sidebarCollapsed) 84.dp else 288.dp,
@@ -56,15 +69,27 @@ internal fun LandscapeWorkspaceScreen(
 
     LaunchedEffect(Unit) {
         val seedFolders = seedCatalogProvider()
-        val loadedFolders = problemCatalogRepository.loadCatalog()
+        protectedFolderIds = seedFolders.map { it.id }.toSet()
+        protectedSetIds = seedFolders.flatMap { it.sets }.map { it.id }.toSet()
+        protectedProblemIds = seedFolders
+            .flatMap { it.sets }
+            .flatMap { it.problems }
+            .map { it.id }
+            .toSet()
+        val loadedFolders = try {
+            problemCatalogRepository.loadCatalog()
+        } catch (_: SQLiteBlobTooBigException) {
+            problemCatalogRepository.persistCatalog(seedFolders)
+            emptyList()
+        }
         val resolvedFolders = when {
             loadedFolders.isEmpty() -> {
                 problemCatalogRepository.persistCatalog(seedFolders)
-                problemCatalogRepository.loadCatalog()
+                seedFolders.deepCopy()
             }
             loadedFolders.all { it.id in LEGACY_TEMPLATE_FOLDER_IDS } -> {
                 problemCatalogRepository.persistCatalog(seedFolders)
-                problemCatalogRepository.loadCatalog()
+                seedFolders.deepCopy()
             }
             else -> {
                 val synchronizedFolders = synchronizeSeedCatalog(
@@ -73,7 +98,7 @@ internal fun LandscapeWorkspaceScreen(
                 )
                 if (catalogChanged(loadedFolders, synchronizedFolders)) {
                     problemCatalogRepository.persistCatalog(synchronizedFolders)
-                    problemCatalogRepository.loadCatalog()
+                    synchronizedFolders.deepCopy()
                 } else {
                     loadedFolders
                 }
@@ -90,6 +115,8 @@ internal fun LandscapeWorkspaceScreen(
         if (selectedProblem != null) {
             currentDraftCode = selectedProblem.starterCode
             currentCustomTestSuite = ProblemTestSuite(draft = selectedProblem.customTests)
+            currentCustomExecutionResult = defaultExecutionResult(ExecutionTarget.Custom)
+            currentSubmissionExecutionResult = defaultExecutionResult(ExecutionTarget.LocalSubmission)
             sketchStrokes.clear()
 
             val document = workspaceDocumentRepository.loadDocument(selectedProblem)
@@ -100,7 +127,15 @@ internal fun LandscapeWorkspaceScreen(
         } else {
             currentDraftCode = ""
             currentCustomTestSuite = ProblemTestSuite()
+            currentCustomExecutionResult = defaultExecutionResult(ExecutionTarget.Custom)
+            currentSubmissionExecutionResult = defaultExecutionResult(ExecutionTarget.LocalSubmission)
             sketchStrokes.clear()
+        }
+    }
+
+    LaunchedEffect(sidebarMode) {
+        if (sidebarMode != SidebarMode.AskAi) {
+            askAiFullscreen = false
         }
     }
 
@@ -109,7 +144,7 @@ internal fun LandscapeWorkspaceScreen(
             .fillMaxSize()
             .background(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFF1A202D), AppBackground)
+                    colors = listOf(SidebarBackground, AppBackground)
                 )
             )
             .padding(20.dp)
@@ -169,6 +204,7 @@ internal fun LandscapeWorkspaceScreen(
                     }
                 },
                 onDeleteProblem = { setId, problem ->
+                    if (problem.id in protectedProblemIds) return@SidebarPane
                     val set = folders.flatMap { it.sets }.firstOrNull { it.id == setId } ?: return@SidebarPane
                     val removingSelected = selectedProblemSetId == setId && selectedProblemId == problem.id
                     set.problems.removeAll { it.id == problem.id }
@@ -219,6 +255,7 @@ internal fun LandscapeWorkspaceScreen(
                     persistCatalogSnapshot()
                 },
                 onDeleteSet = { setId ->
+                    if (setId in protectedSetIds) return@SidebarPane
                     val folder = folders.firstOrNull { folderState ->
                         folderState.sets.any { it.id == setId }
                     } ?: return@SidebarPane
@@ -234,6 +271,7 @@ internal fun LandscapeWorkspaceScreen(
                     persistCatalogSnapshot()
                 },
                 onDeleteFolder = { folderId ->
+                    if (folderId in protectedFolderIds) return@SidebarPane
                     val folderIndex = folders.indexOfFirst { it.id == folderId }
                     if (folderIndex == -1) return@SidebarPane
                     val deletingFolder = folders[folderIndex]
@@ -277,44 +315,55 @@ internal fun LandscapeWorkspaceScreen(
                     }
                     persistCatalogSnapshot()
                 },
-                onImportGitHubRepo = { repoUrl ->
-                    importInProgress = true
-                    importFeedback = null
-                    scope.launch {
-                        try {
-                            val importedFolder = gitHubMarkdownImportService.importRepo(repoUrl)
-                            val existingIndex = folders.indexOfFirst { it.id == importedFolder.id }
-                            if (existingIndex >= 0) {
-                                folders[existingIndex] = importedFolder
-                            } else {
-                                folders.add(importedFolder)
-                            }
-                            val firstSet = importedFolder.sets.firstOrNull()
-                            val firstProblem = firstSet?.problems?.firstOrNull()
-                            selectedProblemSetId = firstSet?.id.orEmpty()
-                            selectedProblemId = firstProblem?.id.orEmpty()
-                            updateActiveProblemSelection(folders, selectedProblemSetId, selectedProblemId)
-                            persistCatalogSnapshot()
-                            val importedCount = importedFolder.sets.sumOf { it.problems.size }
-                            importFeedback = "Imported $importedCount problems from ${importedFolder.title}."
-                        } catch (error: Exception) {
-                            importFeedback = error.message ?: "Import failed."
-                        } finally {
-                            importInProgress = false
-                        }
-                    }
-                },
-                importInProgress = importInProgress,
-                importFeedback = importFeedback,
                 selectedMode = sidebarMode,
                 onModeSelected = { sidebarMode = it },
                 collapsed = sidebarCollapsed,
                 onToggleCollapsed = { sidebarCollapsed = !sidebarCollapsed },
+                protectedFolderIds = protectedFolderIds,
+                protectedSetIds = protectedSetIds,
+                protectedProblemIds = protectedProblemIds,
+                askAiFullscreen = askAiFullscreen,
+                onToggleAskAiFullscreen = {
+                    askAiFullscreen = !askAiFullscreen
+                    if (askAiFullscreen) {
+                        sidebarCollapsed = false
+                    }
+                },
+                selectedProblem = selectedProblem,
+                currentDraftCode = currentDraftCode,
+                currentCustomTestSuite = currentCustomTestSuite,
+                customExecutionResult = currentCustomExecutionResult,
+                submissionExecutionResult = currentSubmissionExecutionResult,
+                aiAssistant = aiAssistant,
+                onGeneratedCustomTests = { generatedSuite ->
+                    val activeProblem = selectedProblem ?: return@SidebarPane
+                    val mergedSuite = mergeCustomTestSuites(
+                        existingSuite = currentCustomTestSuite,
+                        generatedSuite = generatedSuite
+                    )
+                    currentCustomTestSuite = mergedSuite
+                    selectedSupportTab = SupportTab.Custom
+                    persistWorkspaceDocument(
+                        problemId = activeProblem.id,
+                        draftCode = currentDraftCode,
+                        customTestSuite = mergedSuite,
+                        sketches = sketchStrokes.toList()
+                    )
+                },
+                aiRuntimeController = aiRuntimeController,
+                themeMode = themeMode,
+                onThemeModeChange = onThemeModeChange,
                 modifier = Modifier
-                    .width(sidebarWidth)
+                    .then(
+                        if (askAiFullscreen && sidebarMode == SidebarMode.AskAi) {
+                            Modifier.fillMaxSize()
+                        } else {
+                            Modifier.width(sidebarWidth)
+                        }
+                    )
                     .fillMaxHeight()
             )
-            if (selectedProblem != null) {
+            if (!askAiFullscreen && selectedProblem != null) {
                 WorkspacePane(
                     problem = selectedProblem,
                     draftCode = currentDraftCode,
@@ -347,6 +396,24 @@ internal fun LandscapeWorkspaceScreen(
                 ProblemPane(
                     problem = selectedProblem,
                     draftCode = currentDraftCode,
+                    selectedTab = selectedSupportTab,
+                    onSelectedTabChange = { selectedSupportTab = it },
+                    onSolvedChange = { solved ->
+                        val set = folders
+                            .flatMap { it.sets }
+                            .firstOrNull { it.id == selectedProblemSetId }
+                            ?: return@ProblemPane
+                        val updatedProblems = set.problems.map { item ->
+                            if (item.id == selectedProblem.id) {
+                                item.copy(solved = solved)
+                            } else {
+                                item
+                            }
+                        }
+                        set.problems.clear()
+                        set.problems.addAll(updatedProblems)
+                        persistCatalogSnapshot()
+                    },
                     customTestSuite = currentCustomTestSuite,
                     onCustomTestSuiteChange = { updatedCustomTestSuite ->
                         currentCustomTestSuite = updatedCustomTestSuite
@@ -356,6 +423,12 @@ internal fun LandscapeWorkspaceScreen(
                             customTestSuite = updatedCustomTestSuite,
                             sketches = sketchStrokes.toList()
                         )
+                    },
+                    onExecutionResultChange = { result ->
+                        when (result.target) {
+                            ExecutionTarget.Custom -> currentCustomExecutionResult = result
+                            ExecutionTarget.LocalSubmission -> currentSubmissionExecutionResult = result
+                        }
                     },
                     localPythonExecutionService = localPythonExecutionService,
                     modifier = Modifier
@@ -367,12 +440,34 @@ internal fun LandscapeWorkspaceScreen(
     }
 }
 
+private fun mergeCustomTestSuites(
+    existingSuite: ProblemTestSuite,
+    generatedSuite: ProblemTestSuite
+): ProblemTestSuite {
+    val mergedCases = (existingSuite.cases + generatedSuite.cases).mapIndexed { index, testCase ->
+        testCase.copy(label = "Case ${index + 1}")
+    }
+    return existingSuite.copy(cases = mergedCases)
+}
+
+private fun defaultExecutionResult(target: ExecutionTarget): ProblemExecutionResult {
+    return ProblemExecutionResult(
+        target = target,
+        status = ExecutionStatus.Idle,
+        title = "Ready",
+        summary = when (target) {
+            ExecutionTarget.Custom -> "No recorded custom run yet."
+            ExecutionTarget.LocalSubmission -> "No recorded local submission run yet."
+        }
+    )
+}
+
 private val LEGACY_TEMPLATE_FOLDER_IDS = setOf(
     "folder-interview-prep",
     "folder-graph-study"
 )
 
-private fun synchronizeSeedCatalog(
+internal fun synchronizeSeedCatalog(
     loadedFolders: List<ProblemFolderState>,
     seedFolders: List<ProblemFolderState>
 ): List<ProblemFolderState> {
@@ -421,14 +516,43 @@ private fun mergeSeedFolder(
     existingFolder: ProblemFolderState
 ): ProblemFolderState {
     val existingSetsById = existingFolder.sets.associateBy { it.id }
+    val seedSetsById = seedFolder.sets.associateBy { it.id }
+    val seedProblemsById = seedFolder.sets
+        .flatMap { it.problems }
+        .associateBy { it.id }
+    val existingProblemIds = existingFolder.sets
+        .flatMap { it.problems }
+        .map { it.id }
+        .toSet()
+    val orderedSetIds = buildList {
+        addAll(existingFolder.sets.map { it.id })
+        addAll(seedFolder.sets.map { it.id }.filterNot { it in existingSetsById })
+    }.distinct()
+    val consumedProblemIds = mutableSetOf<String>()
+
     return ProblemFolderState(
         id = seedFolder.id,
         title = seedFolder.title,
         sets = mutableStateListOf<ProblemSetState>().apply {
             addAll(
-                seedFolder.sets.map { seedSet ->
-                    val existingSet = existingSetsById[seedSet.id]
-                    mergeSeedSet(seedSet = seedSet, existingSet = existingSet)
+                orderedSetIds.map { setId ->
+                    val seedSet = seedSetsById[setId]
+                    val existingSet = existingSetsById[setId]
+                    if (seedSet != null) {
+                        mergeSeedSet(
+                            seedSet = seedSet,
+                            existingSet = existingSet,
+                            seedProblemsById = seedProblemsById,
+                            existingProblemIds = existingProblemIds,
+                            consumedProblemIds = consumedProblemIds
+                        )
+                    } else {
+                        copyExistingSetState(
+                            existingSet = existingSet ?: error("Missing existing set for id=$setId"),
+                            seedProblemsById = seedProblemsById,
+                            consumedProblemIds = consumedProblemIds
+                        )
+                    }
                 }
             )
         }
@@ -437,7 +561,10 @@ private fun mergeSeedFolder(
 
 private fun mergeSeedSet(
     seedSet: ProblemSetState,
-    existingSet: ProblemSetState?
+    existingSet: ProblemSetState?,
+    seedProblemsById: Map<String, ProblemListItem>,
+    existingProblemIds: Set<String>,
+    consumedProblemIds: MutableSet<String>
 ): ProblemSetState {
     val existingProblemsById = existingSet?.problems?.associateBy { it.id }.orEmpty()
     return ProblemSetState(
@@ -445,17 +572,73 @@ private fun mergeSeedSet(
         title = seedSet.title,
         problems = mutableStateListOf<ProblemListItem>().apply {
             addAll(
-                seedSet.problems.map { seedProblem ->
-                    val existingProblem = existingProblemsById[seedProblem.id]
-                    seedProblem.copy(
-                        active = existingProblem?.active ?: seedProblem.active,
-                        solved = existingProblem?.solved ?: seedProblem.solved,
-                        customTests = existingProblem?.customTests ?: seedProblem.customTests
-                    )
+                buildList {
+                    existingSet?.problems?.forEach { existingProblem ->
+                        if (consumedProblemIds.add(existingProblem.id)) {
+                            add(
+                                mergeProblemState(
+                                    seedProblem = seedProblemsById[existingProblem.id],
+                                    existingProblem = existingProblem
+                                )
+                            )
+                        }
+                    }
+                    seedSet.problems.forEach { seedProblem ->
+                        if (seedProblem.id !in existingProblemIds && consumedProblemIds.add(seedProblem.id)) {
+                            val existingProblem = existingProblemsById[seedProblem.id]
+                            add(
+                                seedProblem.copy(
+                                    active = existingProblem?.active ?: seedProblem.active,
+                                    solved = existingProblem?.solved ?: seedProblem.solved,
+                                    customTests = existingProblem?.customTests ?: seedProblem.customTests
+                                )
+                            )
+                        }
+                    }
                 }
             )
         }
     )
+}
+
+private fun copyExistingSetState(
+    existingSet: ProblemSetState,
+    seedProblemsById: Map<String, ProblemListItem>,
+    consumedProblemIds: MutableSet<String>
+): ProblemSetState {
+    return ProblemSetState(
+        id = existingSet.id,
+        title = existingSet.title,
+        problems = mutableStateListOf<ProblemListItem>().apply {
+            addAll(
+                existingSet.problems.mapNotNull { existingProblem ->
+                    if (!consumedProblemIds.add(existingProblem.id)) {
+                        null
+                    } else {
+                        mergeProblemState(
+                            seedProblem = seedProblemsById[existingProblem.id],
+                            existingProblem = existingProblem
+                        )
+                    }
+                }
+            )
+        }
+    )
+}
+
+private fun mergeProblemState(
+    seedProblem: ProblemListItem?,
+    existingProblem: ProblemListItem
+): ProblemListItem {
+    return if (seedProblem != null) {
+        seedProblem.copy(
+            active = existingProblem.active,
+            solved = existingProblem.solved,
+            customTests = existingProblem.customTests
+        )
+    } else {
+        existingProblem.copy()
+    }
 }
 
 private fun catalogChanged(
@@ -679,9 +862,39 @@ private fun LandscapeWorkspacePreview() {
                     override suspend fun upsert(document: dev.kaixinguo.standalonecodepractice.data.local.WorkspaceDocumentEntity) = Unit
                 }
             ),
-            gitHubMarkdownImportService = GitHubMarkdownImportService(),
             localPythonExecutionService = LocalPythonExecutionService(androidx.compose.ui.platform.LocalContext.current),
-            seedCatalogProvider = { previewCatalog() }
+            aiAssistant = object : AiAssistant {
+                override suspend fun generateHint(problem: String, code: String?, request: String?) = "Hint preview"
+                override suspend fun explainSolution(problem: String, code: String?, request: String?) = "Explain preview"
+                override suspend fun reviewCode(problem: String, code: String?, request: String?) = "Review preview"
+                override suspend fun generateCustomTests(problem: String, code: String?, request: String?) = ProblemTestSuite()
+                override suspend fun solveProblem(problem: String, code: String?, request: String?) = "Solve preview"
+            },
+            aiRuntimeController = object : AiRuntimeController {
+                override val runtimeState = kotlinx.coroutines.flow.MutableStateFlow(
+                    AiRuntimeState(
+                        phase = AiRuntimePhase.Ready,
+                        preset = null,
+                        modelName = "preview.gguf",
+                        detail = "Preview runtime."
+                    )
+                )
+
+                override suspend fun importModel(uri: android.net.Uri) = Unit
+
+                override suspend fun downloadPresetModel(preset: dev.kaixinguo.standalonecodepractice.ai.AiModelPreset) = Unit
+
+                override suspend fun loadConfiguredModel() = Unit
+
+                override suspend fun unloadModel() = Unit
+
+                override suspend fun removeConfiguredModel() = Unit
+
+                override fun destroy() = Unit
+            },
+            seedCatalogProvider = { previewCatalog() },
+            themeMode = AppThemeMode.Night,
+            onThemeModeChange = {}
         )
     }
 }

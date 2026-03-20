@@ -6,6 +6,7 @@ import dev.kaixinguo.standalonecodepractice.data.local.ProblemFolderEntity
 import dev.kaixinguo.standalonecodepractice.data.local.ProblemSetEntity
 import dev.kaixinguo.standalonecodepractice.data.local.StoredProblemEntity
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemFolderState
+import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemExecutionPipeline
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemListItem
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemSetState
 import org.json.JSONArray
@@ -88,6 +89,13 @@ internal class ProblemCatalogRepository(
     }
 
     private fun StoredProblemEntity.toModel(): ProblemListItem {
+        val pipeline = ProblemExecutionPipeline.fromStorage(executionPipeline)
+        val normalizedExampleInput = ProblemInputNormalizer.normalizeExampleInput(
+            rawInput = exampleInput,
+            starterCode = starterCode,
+            executionPipeline = pipeline
+        )
+        val decodedSubmissionSuite = ProblemTestSuiteJsonCodec.decodeFromString(submissionTestSuiteJson)
         return ProblemListItem(
             id = id,
             title = title,
@@ -96,11 +104,22 @@ internal class ProblemCatalogRepository(
             solved = solved,
             summary = summary,
             statementMarkdown = statementMarkdown,
-            exampleInput = exampleInput,
+            exampleInput = normalizedExampleInput,
             exampleOutput = exampleOutput,
             starterCode = starterCode,
             customTests = customTests,
-            hints = decodeHints(hintsJson)
+            hints = decodeHints(hintsJson),
+            submissionTestSuite = ProblemInputNormalizer.normalizeSubmissionTestSuite(
+                testSuite = decodedSubmissionSuite
+                    ?: ProblemSubmissionSuiteFactory.build(
+                        statementMarkdown = statementMarkdown,
+                        exampleInput = normalizedExampleInput,
+                        exampleOutput = exampleOutput
+                    ),
+                starterCode = starterCode,
+                executionPipeline = pipeline
+            ),
+            executionPipeline = pipeline
         )
     }
 
@@ -119,6 +138,11 @@ internal class ProblemCatalogRepository(
             starterCode = starterCode,
             customTests = customTests,
             hintsJson = encodeHints(hints),
+            submissionTestSuiteJson = ProblemTestSuiteJsonCodec.encodeToString(
+                submissionTestSuite.takeIf { it.cases.isNotEmpty() || it.draft.isNotBlank() }
+                    ?: ProblemSubmissionSuiteFactory.build(this)
+            ),
+            executionPipeline = executionPipeline.storageValue,
             sortIndex = sortIndex
         )
     }

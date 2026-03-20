@@ -9,14 +9,20 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,11 +30,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,13 +53,26 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
+import dev.kaixinguo.standalonecodepractice.R
+import dev.kaixinguo.standalonecodepractice.ai.AiAssistant
+import dev.kaixinguo.standalonecodepractice.ai.AiModelPreset
+import dev.kaixinguo.standalonecodepractice.ai.AiRuntimeController
+import dev.kaixinguo.standalonecodepractice.ai.AiRuntimePhase
+import dev.kaixinguo.standalonecodepractice.ai.ProblemPromptFormatter
+import dev.kaixinguo.standalonecodepractice.ai.PromptMode
+import dev.kaixinguo.standalonecodepractice.data.ProblemInputNormalizer
+import dev.kaixinguo.standalonecodepractice.data.ProblemSubmissionSuiteFactory
+import dev.kaixinguo.standalonecodepractice.ui.theme.AccentAmber
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentBlue
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentGreen
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentRed
+import dev.kaixinguo.standalonecodepractice.ui.theme.AppThemeMode
 import dev.kaixinguo.standalonecodepractice.ui.theme.CardBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.CardBackgroundAlt
 import dev.kaixinguo.standalonecodepractice.ui.theme.CardBorder
@@ -60,6 +81,7 @@ import dev.kaixinguo.standalonecodepractice.ui.theme.SidebarBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextMuted
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextPrimary
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun SidebarPane(
@@ -74,13 +96,25 @@ internal fun SidebarPane(
     onDeleteSet: (String) -> Unit,
     onDeleteFolder: (String) -> Unit,
     onMoveProblem: (String, String, ProblemListItem, Int) -> Unit,
-    onImportGitHubRepo: (String) -> Unit,
-    importInProgress: Boolean,
-    importFeedback: String?,
     selectedMode: SidebarMode,
     onModeSelected: (SidebarMode) -> Unit,
     collapsed: Boolean,
     onToggleCollapsed: () -> Unit,
+    protectedFolderIds: Set<String>,
+    protectedSetIds: Set<String>,
+    protectedProblemIds: Set<String>,
+    askAiFullscreen: Boolean,
+    onToggleAskAiFullscreen: () -> Unit,
+    selectedProblem: ProblemListItem?,
+    currentDraftCode: String,
+    currentCustomTestSuite: ProblemTestSuite,
+    customExecutionResult: ProblemExecutionResult,
+    submissionExecutionResult: ProblemExecutionResult,
+    aiAssistant: AiAssistant,
+    onGeneratedCustomTests: (ProblemTestSuite) -> Unit,
+    aiRuntimeController: AiRuntimeController,
+    themeMode: AppThemeMode,
+    onThemeModeChange: (AppThemeMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -90,7 +124,10 @@ internal fun SidebarPane(
         tonalElevation = 0.dp,
         border = BorderStroke(1.dp, CardBorder)
     ) {
-        if (collapsed) {
+        val showAskAiFullscreen = selectedMode == SidebarMode.AskAi && askAiFullscreen
+        val showNavigationChrome = !showAskAiFullscreen
+
+        if (collapsed && !showAskAiFullscreen) {
             CollapsedSidebarPane(
                 selectedMode = selectedMode,
                 onModeSelected = onModeSelected,
@@ -104,28 +141,32 @@ internal fun SidebarPane(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "View",
-                        color = TextMuted,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .weight(1f)
-                    )
-                    ArrowActionChip(
-                        direction = ArrowDirection.Collapse,
-                        onClick = onToggleCollapsed
-                    )
+                if (showNavigationChrome) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "View",
+                            color = TextMuted,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .weight(1f)
+                        )
+                        ArrowActionChip(
+                            direction = ArrowDirection.Collapse,
+                            onClick = onToggleCollapsed
+                        )
+                    }
                 }
 
-                SidebarModeSelector(
-                    selectedMode = selectedMode,
-                    onModeSelected = onModeSelected
-                )
+                if (showNavigationChrome) {
+                    SidebarModeSelector(
+                        selectedMode = selectedMode,
+                        onModeSelected = onModeSelected
+                    )
+                }
 
                 when (selectedMode) {
                     SidebarMode.Problems -> ProblemsSidebarContent(
@@ -139,13 +180,130 @@ internal fun SidebarPane(
                         onCreateSet = onCreateSet,
                         onDeleteSet = onDeleteSet,
                         onDeleteFolder = onDeleteFolder,
-                        onMoveProblem = onMoveProblem,
-                        onImportGitHubRepo = onImportGitHubRepo,
-                        importInProgress = importInProgress,
-                        importFeedback = importFeedback
+                        protectedFolderIds = protectedFolderIds,
+                        protectedSetIds = protectedSetIds,
+                        protectedProblemIds = protectedProblemIds,
+                        onMoveProblem = onMoveProblem
                     )
-                    SidebarMode.AskAi -> AskAiSidebarContent()
-                    SidebarMode.Settings -> SettingsSidebarContent()
+                    SidebarMode.Stats -> StatsSidebarContent(
+                        folders = folders
+                    )
+                    SidebarMode.AskAi -> AskAiSidebarContent(
+                        fullscreen = showAskAiFullscreen,
+                        onToggleFullscreen = onToggleAskAiFullscreen,
+                        selectedProblem = selectedProblem,
+                        currentDraftCode = currentDraftCode,
+                        currentCustomTestSuite = currentCustomTestSuite,
+                        customExecutionResult = customExecutionResult,
+                        submissionExecutionResult = submissionExecutionResult,
+                        aiAssistant = aiAssistant,
+                        onGeneratedCustomTests = onGeneratedCustomTests
+                    )
+                    SidebarMode.Settings -> SettingsSidebarContent(
+                        aiRuntimeController = aiRuntimeController,
+                        themeMode = themeMode,
+                        onThemeModeChange = onThemeModeChange
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.StatsSidebarContent(
+    folders: List<ProblemFolderState>
+) {
+    val overallSolved = folders.sumOf { folder ->
+        folder.sets.sumOf { set -> set.problems.count { it.solved } }
+    }
+    val overallTotal = folders.sumOf { folder ->
+        folder.sets.sumOf { set -> set.problems.size }
+    }
+
+    CardBlock(title = "Overview", modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = if (overallTotal == 0) {
+                "No problems loaded yet."
+            } else {
+                "$overallSolved / $overallTotal solved"
+            },
+            color = TextPrimary,
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = if (overallTotal == 0) {
+                "Import or load a catalog to start tracking progress."
+            } else {
+                "${((overallSolved.toFloat() / overallTotal.toFloat()) * 100f).toInt()}% complete across all folders."
+            },
+            color = TextMuted,
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        if (folders.isEmpty()) {
+            CardBlock(title = "Folders", modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Folder progress will show up here once the catalog is loaded.",
+                    color = TextMuted,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else {
+            folders.forEach { folder ->
+                val folderSolved = folder.sets.sumOf { set -> set.problems.count { it.solved } }
+                val folderTotal = folder.sets.sumOf { set -> set.problems.size }
+                CardBlock(title = folder.title, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "$folderSolved / $folderTotal solved",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = if (folderTotal == 0) {
+                            "No problems in this folder yet."
+                        } else {
+                            "${((folderSolved.toFloat() / folderTotal.toFloat()) * 100f).toInt()}% complete"
+                        },
+                        color = TextMuted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    if (folder.sets.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        folder.sets.forEachIndexed { index, set ->
+                            val setSolved = set.problems.count { it.solved }
+                            val setTotal = set.problems.size
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = set.title,
+                                    color = TextSecondary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "$setSolved / $setTotal",
+                                    color = if (setSolved == setTotal && setTotal > 0) AccentGreen else TextMuted,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                            if (index < folder.sets.lastIndex) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -258,17 +416,15 @@ private fun ProblemsSidebarContent(
     onCreateSet: (String, String) -> Unit,
     onDeleteSet: (String) -> Unit,
     onDeleteFolder: (String) -> Unit,
-    onMoveProblem: (String, String, ProblemListItem, Int) -> Unit,
-    onImportGitHubRepo: (String) -> Unit,
-    importInProgress: Boolean,
-    importFeedback: String?
+    protectedFolderIds: Set<String>,
+    protectedSetIds: Set<String>,
+    protectedProblemIds: Set<String>,
+    onMoveProblem: (String, String, ProblemListItem, Int) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
     var problemFilter by remember { mutableStateOf(ProblemFilter.All) }
     var creatingFolder by remember { mutableStateOf(false) }
     var newFolderTitle by remember { mutableStateOf("") }
-    var importingRepo by remember { mutableStateOf(false) }
-    var importUrl by remember { mutableStateOf("") }
     var draggedProblem by remember { mutableStateOf<DraggedProblemState?>(null) }
     var hoveredSetId by remember { mutableStateOf<String?>(null) }
     var hoveredInsertionTarget by remember { mutableStateOf<InsertionTarget?>(null) }
@@ -277,13 +433,6 @@ private fun ProblemsSidebarContent(
     val problemBounds = remember { mutableStateMapOf<String, Rect>() }
     var trashBounds by remember { mutableStateOf<Rect?>(null) }
     val density = LocalDensity.current
-
-    LaunchedEffect(importFeedback, importInProgress) {
-        if (!importInProgress && importFeedback?.startsWith("Imported") == true) {
-            importUrl = ""
-            importingRepo = false
-        }
-    }
 
     CardBlock(title = null, modifier = Modifier.fillMaxWidth()) {
         BasicTextField(
@@ -352,6 +501,8 @@ private fun ProblemsSidebarContent(
                         onCreateSet = onCreateSet,
                         onDeleteSet = onDeleteSet,
                         onDeleteFolder = onDeleteFolder,
+                        protectedFolderIds = protectedFolderIds,
+                        protectedSetIds = protectedSetIds,
                         onSetBoundsChange = { setId, bounds ->
                             if (bounds != null) {
                                 setBounds[setId] = bounds
@@ -383,8 +534,11 @@ private fun ProblemsSidebarContent(
                                 drag.copy(pointer = drag.pointer + dragDelta)
                             }
                             draggedProblem = updatedDrag
+                            val canTrashDraggedProblem = updatedDrag?.problem?.id !in protectedProblemIds
                             val dragRect = updatedDrag?.previewRect()
-                            val isOverTrash = dragRect != null && trashBounds?.overlapsWith(dragRect) == true
+                            val isOverTrash = canTrashDraggedProblem &&
+                                dragRect != null &&
+                                trashBounds?.overlapsWith(dragRect) == true
                             hoveredTrash = isOverTrash
                             if (isOverTrash) {
                                 hoveredSetId = null
@@ -420,8 +574,10 @@ private fun ProblemsSidebarContent(
                         onDragEnd = {
                             val drag = draggedProblem
                             if (drag != null) {
+                                val canTrashDraggedProblem = drag.problem.id !in protectedProblemIds
                                 val finalPointer = drag.pointer
-                                val droppingOnTrash = trashBounds?.overlapsWith(drag.previewRect()) == true
+                                val droppingOnTrash = canTrashDraggedProblem &&
+                                    trashBounds?.overlapsWith(drag.previewRect()) == true
                                 val finalTarget = hoveredInsertionTarget ?: run {
                                     val problemEntry = problemBounds.entries.firstOrNull { (_, bounds) ->
                                         bounds.contains(finalPointer)
@@ -468,7 +624,7 @@ private fun ProblemsSidebarContent(
                 }
             }
         }
-        if (draggedProblem != null) {
+        if (draggedProblem != null && draggedProblem!!.problem.id !in protectedProblemIds) {
             TrashDropTarget(
                 active = hoveredTrash,
                 modifier = Modifier
@@ -522,82 +678,18 @@ private fun ProblemsSidebarContent(
                             creatingFolder = false
                         }
                     }
-                } else if (importingRepo) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BasicTextField(
-                            value = importUrl,
-                            onValueChange = { importUrl = it },
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary),
-                            cursorBrush = SolidColor(AccentBlue),
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("githubImportUrlField"),
-                            decorationBox = { innerTextField ->
-                                if (importUrl.isBlank()) {
-                                    Text(
-                                        text = "GitHub repo URL...",
-                                        color = TextMuted,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            PlainActionChip(
-                                label = if (importInProgress) "Importing..." else "Import",
-                                modifier = Modifier.testTag("githubImportSubmit")
-                            ) {
-                                val url = importUrl.trim()
-                                if (url.isNotEmpty() && !importInProgress) {
-                                    onImportGitHubRepo(url)
-                                }
-                            }
-                            PlainActionChip("Cancel") {
-                                importUrl = ""
-                                importingRepo = false
-                            }
-                        }
-                    }
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        PlainActionChip("New Folder") {
-                            importingRepo = false
+                        PlainActionChip(
+                            label = "New Folder",
+                            iconRes = R.drawable.ic_plus
+                        ) {
                             creatingFolder = true
                         }
-                        PlainActionChip(
-                            label = "+ Repo",
-                            modifier = Modifier.testTag("githubImportOpen")
-                        ) {
-                            creatingFolder = false
-                            importingRepo = true
-                        }
                     }
-                }
-                if (!importFeedback.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = importFeedback,
-                        color = if (importFeedback.startsWith("Imported")) AccentGreen else AccentRed,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.testTag("githubImportFeedback")
-                    )
-                }
-                if (!creatingFolder && !importingRepo && importInProgress) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Importing repository...",
-                        color = AccentBlue,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
                 }
             }
         }
@@ -640,6 +732,8 @@ private fun FolderTreeBlock(
     onCreateSet: (String, String) -> Unit,
     onDeleteSet: (String) -> Unit,
     onDeleteFolder: (String) -> Unit,
+    protectedFolderIds: Set<String>,
+    protectedSetIds: Set<String>,
     onSetBoundsChange: (String, Rect?) -> Unit,
     onProblemBoundsChange: (String, Rect?) -> Unit,
     onDragStart: (String, ProblemListItem, Offset, Offset, IntSize) -> Unit,
@@ -660,12 +754,13 @@ private fun FolderTreeBlock(
                     .padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (expanded) "v" else ">",
-                    color = TextMuted,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.width(18.dp)
+                Icon(
+                    painter = painterResource(if (expanded) R.drawable.ic_chevron_down else R.drawable.ic_chevron_right),
+                    contentDescription = if (expanded) "Collapse folder" else "Expand folder",
+                    tint = TextMuted,
+                    modifier = Modifier.size(18.dp)
                 )
+                Spacer(modifier = Modifier.width(2.dp))
                 Text(
                     text = folder.title,
                     color = TextPrimary,
@@ -674,7 +769,8 @@ private fun FolderTreeBlock(
             }
             FolderActionMenu(
                 onCreateSet = { title -> onCreateSet(folder.id, title) },
-                onDeleteFolder = { onDeleteFolder(folder.id) }
+                onDeleteFolder = { onDeleteFolder(folder.id) },
+                allowDelete = folder.id !in protectedFolderIds
             )
         }
         if (expanded) {
@@ -698,6 +794,7 @@ private fun FolderTreeBlock(
                             onProblemSetSelected = onProblemSetSelected,
                             onProblemSelected = onProblemSelected,
                             onDeleteSet = onDeleteSet,
+                            allowDeleteSet = set.id !in protectedSetIds,
                             onSetBoundsChange = onSetBoundsChange,
                             onProblemBoundsChange = onProblemBoundsChange,
                             onDragStart = onDragStart,
@@ -714,7 +811,8 @@ private fun FolderTreeBlock(
 @Composable
 private fun FolderActionMenu(
     onCreateSet: (String) -> Unit,
-    onDeleteFolder: () -> Unit
+    onDeleteFolder: () -> Unit,
+    allowDelete: Boolean
 ) {
     var expanded by remember { mutableStateOf(false) }
     var confirmingDelete by remember { mutableStateOf(false) }
@@ -747,13 +845,15 @@ private fun FolderActionMenu(
                     expanded = false
                 }
             )
-            DropdownMenuItem(
-                text = { Text("Delete Folder") },
-                onClick = {
-                    confirmingDelete = true
-                    expanded = false
-                }
-            )
+            if (allowDelete) {
+                DropdownMenuItem(
+                    text = { Text("Delete Folder") },
+                    onClick = {
+                        confirmingDelete = true
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 
@@ -816,7 +916,7 @@ private fun FolderActionMenu(
         )
     }
 
-    if (confirmingDelete) {
+    if (confirmingDelete && allowDelete) {
         AlertDialog(
             onDismissRequest = { confirmingDelete = false },
             title = {
@@ -937,6 +1037,7 @@ private fun ProblemSetTree(
     onProblemSetSelected: (String) -> Unit,
     onProblemSelected: (String, String) -> Unit,
     onDeleteSet: (String) -> Unit,
+    allowDeleteSet: Boolean,
     onSetBoundsChange: (String, Rect?) -> Unit,
     onProblemBoundsChange: (String, Rect?) -> Unit,
     onDragStart: (String, ProblemListItem, Offset, Offset, IntSize) -> Unit,
@@ -981,12 +1082,13 @@ private fun ProblemSetTree(
                     .padding(start = 8.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (expanded) "v" else ">",
-                    color = TextMuted,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.width(18.dp)
+                Icon(
+                    painter = painterResource(if (expanded) R.drawable.ic_chevron_down else R.drawable.ic_chevron_right),
+                    contentDescription = if (expanded) "Collapse set" else "Expand set",
+                    tint = TextMuted,
+                    modifier = Modifier.size(18.dp)
                 )
+                Spacer(modifier = Modifier.width(2.dp))
                 Text(
                     text = problemSet.title,
                     color = when {
@@ -997,9 +1099,11 @@ private fun ProblemSetTree(
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            SetActionMenu(
-                onDeleteSet = { onDeleteSet(problemSet.id) }
-            )
+            if (allowDeleteSet) {
+                SetActionMenu(
+                    onDeleteSet = { onDeleteSet(problemSet.id) }
+                )
+            }
         }
         if (expanded) {
             Column {
@@ -1029,45 +1133,906 @@ private fun ProblemSetTree(
 }
 
 @Composable
-private fun ColumnScope.AskAiSidebarContent() {
-    CardBlock(title = "Ask AI", modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Use local AI later for hints, explanations, and study prompts.",
-            color = TextSecondary,
-            style = MaterialTheme.typography.bodyLarge
-        )
+private fun ColumnScope.AskAiSidebarContent(
+    fullscreen: Boolean,
+    onToggleFullscreen: () -> Unit,
+    selectedProblem: ProblemListItem?,
+    currentDraftCode: String,
+    currentCustomTestSuite: ProblemTestSuite,
+    customExecutionResult: ProblemExecutionResult,
+    submissionExecutionResult: ProblemExecutionResult,
+    aiAssistant: AiAssistant,
+    onGeneratedCustomTests: (ProblemTestSuite) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val chatScrollState = rememberScrollState()
+    var selectedMode by remember(selectedProblem?.id) { mutableStateOf(PromptMode.HINT) }
+    var promptDraft by remember(selectedProblem?.id) { mutableStateOf("") }
+    var messages by remember(selectedProblem?.id) { mutableStateOf(listOf<AiChatMessage>()) }
+    var isLoading by remember { mutableStateOf(false) }
+    val availableDraftCode = remember(currentDraftCode) {
+        normalizedCodeForReview(currentDraftCode).takeIf { it.isNotBlank() }
+    }
+    val userWrittenDraftCode = remember(selectedProblem?.id, currentDraftCode) {
+        selectedProblem
+            ?.let { problem ->
+                normalizedCodeForReview(currentDraftCode)
+                    .takeIf { draft -> draft.isNotBlank() && draft != normalizedCodeForReview(problem.starterCode) }
+            }
+    }
+    val codeForMode = when (selectedMode) {
+        PromptMode.EXPLAIN -> availableDraftCode
+        PromptMode.REVIEW_CODE -> userWrittenDraftCode
+        PromptMode.TEST_CASES -> null
+        else -> userWrittenDraftCode
+    }
+    val submissionTestSuite = remember(
+        selectedProblem?.id,
+        selectedProblem?.submissionTestSuite,
+        selectedProblem?.statementMarkdown,
+        selectedProblem?.exampleInput,
+        selectedProblem?.exampleOutput,
+        selectedProblem?.starterCode,
+        selectedProblem?.executionPipeline
+    ) {
+        selectedProblem?.let { problem ->
+            ProblemInputNormalizer.normalizeSubmissionTestSuite(
+                problem = problem,
+                testSuite = problem.submissionTestSuite.takeIf {
+                    it.cases.isNotEmpty() || it.draft.isNotBlank()
+                } ?: ProblemSubmissionSuiteFactory.build(problem)
+            )
+        } ?: ProblemTestSuite()
+    }
+    val canSend = selectedProblem != null && !isLoading
+    val shouldIncludeDraft = codeForMode != null
+    var modeMenuExpanded by remember { mutableStateOf(false) }
+    val compactLayout = !fullscreen
+    val supportsFreeText = modeSupportsFreeText(selectedMode)
+
+    LaunchedEffect(messages.size, isLoading) {
+        chatScrollState.scrollTo(chatScrollState.maxValue)
     }
 
-    CardBlock(title = "Quick Prompts", modifier = Modifier.fillMaxWidth()) {
-        SuggestionLine("Explain the traversal order")
-        Spacer(modifier = Modifier.padding(6.dp))
-        SuggestionLine("Give me a recursion hint")
-        Spacer(modifier = Modifier.padding(6.dp))
-        SuggestionLine("Compare recursion vs stack")
-    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            color = CardBackground,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, CardBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = selectedProblem?.title ?: "No problem selected",
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = if (compactLayout) 2 else 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = if (shouldIncludeDraft) "Draft included" else "Draft not included",
+                            color = TextMuted,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AiModeSelectorChip(
+                            selectedMode = selectedMode,
+                            expanded = modeMenuExpanded,
+                            onExpandedChange = { modeMenuExpanded = it },
+                            onModeSelected = { selectedMode = it },
+                            modifier = Modifier.weight(1f)
+                        )
+                        PlainActionChip(
+                            label = if (fullscreen) "Exit Full Screen" else "Expand",
+                            accentColor = AccentBlue,
+                            onClick = onToggleFullscreen
+                        )
+                    }
+                }
+                Text(
+                    text = if (compactLayout) {
+                        compactModeDescription(selectedMode)
+                    } else {
+                        selectedMode.description
+                    },
+                    color = TextMuted,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
 
-    Spacer(modifier = Modifier.weight(1f))
+        Surface(
+            color = CardBackground,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, CardBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (messages.isEmpty() && !isLoading) {
+                    Text(
+                        text = emptyStateMessage(selectedMode, compactLayout),
+                        color = TextMuted,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(chatScrollState),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    messages.forEach { message ->
+                        AiChatBubble(
+                            message = message,
+                            fullscreen = fullscreen
+                        )
+                    }
+                    if (isLoading) {
+                        AiChatBubble(
+                            message = AiChatMessage(
+                                sender = AiChatSender.Assistant,
+                                mode = selectedMode,
+                                text = when (selectedMode) {
+                                    PromptMode.HINT -> "Thinking through a hint..."
+                                    PromptMode.EXPLAIN -> "Putting the explanation together..."
+                                    PromptMode.REVIEW_CODE -> "Reviewing the current draft..."
+                                    PromptMode.TEST_CASES -> "Generating importable custom tests..."
+                                    PromptMode.SOLVE -> "Writing the solution..."
+                                }
+                            ),
+                            fullscreen = fullscreen,
+                            loading = true
+                        )
+                    }
+                }
+            }
+        }
+
+        Surface(
+            color = CardBackground,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, CardBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = composerLabel(selectedMode, supportsFreeText),
+                    color = TextMuted,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                if (supportsFreeText) {
+                    EditableSupportTextBlock(
+                        value = promptDraft,
+                        onValueChange = { promptDraft = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        minHeight = if (compactLayout) 96.dp else 112.dp,
+                        maxHeight = if (compactLayout) 160.dp else 220.dp,
+                        scrollable = true
+                    )
+                } else {
+                    Text(
+                        text = fixedActionMessage(selectedMode),
+                        color = TextMuted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PlainActionChip(
+                        label = "Clear Chat",
+                        accentColor = AccentAmber,
+                        onClick = if (messages.isNotEmpty() && !isLoading) {
+                            { messages = emptyList() }
+                        } else {
+                            null
+                        }
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    PlainActionChip(
+                        label = actionButtonLabel(selectedMode, compactLayout),
+                        accentColor = if (canSend) AccentBlue else TextMuted,
+                        onClick = if (canSend) {
+                            {
+                                val activeProblem = selectedProblem ?: run {
+                                    messages = messages + AiChatMessage(
+                                        sender = AiChatSender.System,
+                                        mode = selectedMode,
+                                        text = "Select a problem first."
+                                    )
+                                    return@PlainActionChip
+                                }
+                                if (selectedMode == PromptMode.REVIEW_CODE && userWrittenDraftCode == null) {
+                                    messages = messages + AiChatMessage(
+                                        sender = AiChatSender.System,
+                                        mode = selectedMode,
+                                        text = "There is no user-written code in the editor to review yet."
+                                    )
+                                    return@PlainActionChip
+                                }
+                                val promptText = if (supportsFreeText) promptDraft.trim() else ""
+                                val userMessage = promptText.ifBlank { defaultChatMessageForMode(selectedMode) }
+                                val problemPrompt = buildAiProblemContext(
+                                    problem = activeProblem,
+                                    mode = selectedMode,
+                                    customTestSuite = currentCustomTestSuite,
+                                    submissionTestSuite = submissionTestSuite,
+                                    customExecutionResult = customExecutionResult,
+                                    submissionExecutionResult = submissionExecutionResult
+                                )
+                                val explicitRequest = promptText.takeIf { it.isNotBlank() }
+                                messages = messages + AiChatMessage(
+                                    sender = AiChatSender.User,
+                                    mode = selectedMode,
+                                    text = userMessage
+                                )
+                                if (supportsFreeText) {
+                                    promptDraft = ""
+                                }
+                                isLoading = true
+                                scope.launch {
+                                    runCatching {
+                                        when (selectedMode) {
+                                            PromptMode.HINT -> aiAssistant.generateHint(problemPrompt, codeForMode, explicitRequest)
+                                            PromptMode.EXPLAIN -> aiAssistant.explainSolution(problemPrompt, codeForMode, explicitRequest)
+                                            PromptMode.REVIEW_CODE -> aiAssistant.reviewCode(problemPrompt, codeForMode, explicitRequest)
+                                            PromptMode.TEST_CASES -> {
+                                                val generatedSuite = aiAssistant.generateCustomTests(
+                                                    problem = problemPrompt,
+                                                    code = null,
+                                                    request = explicitRequest
+                                                )
+                                                onGeneratedCustomTests(generatedSuite)
+                                                buildString {
+                                                    append("Imported ${generatedSuite.cases.size} custom cases into the Custom tab.\n\n")
+                                                    append(formatGeneratedTestSuiteSummary(generatedSuite))
+                                                }
+                                            }
+                                            PromptMode.SOLVE -> aiAssistant.solveProblem(problemPrompt, codeForMode, explicitRequest)
+                                        }
+                                    }.onSuccess { response ->
+                                        messages = messages + AiChatMessage(
+                                            sender = AiChatSender.Assistant,
+                                            mode = selectedMode,
+                                            text = response.trim()
+                                        )
+                                    }.onFailure { throwable ->
+                                        messages = messages + AiChatMessage(
+                                            sender = AiChatSender.System,
+                                            mode = selectedMode,
+                                            text = throwable.message ?: "Unknown AI runtime error"
+                                        )
+                                    }
+                                    isLoading = false
+                                }
+                            }
+                        } else {
+                            null
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
-private fun ColumnScope.SettingsSidebarContent() {
-    CardBlock(title = "Settings", modifier = Modifier.fillMaxWidth()) {
-        SettingLine("Runtime", "Embedded Python")
-        Spacer(modifier = Modifier.padding(6.dp))
-        SettingLine("Theme", "Dark tablet layout")
-        Spacer(modifier = Modifier.padding(6.dp))
-        SettingLine("Catalog source", "Local + GitHub imports")
+private fun AiModeSelectorChip(
+    selectedMode: PromptMode,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onModeSelected: (PromptMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        Surface(
+            color = CardBackgroundAlt,
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, CardBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onExpandedChange(true) }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = selectedMode.label,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_down),
+                    contentDescription = "Select AI mode",
+                    tint = TextMuted,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) }
+        ) {
+            PromptMode.entries.forEach { promptMode ->
+                DropdownMenuItem(
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = promptMode.label,
+                                color = TextPrimary,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = promptMode.description,
+                                color = TextMuted,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    },
+                    onClick = {
+                        onModeSelected(promptMode)
+                        onExpandedChange(false)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiChatBubble(
+    message: AiChatMessage,
+    fullscreen: Boolean,
+    loading: Boolean = false
+) {
+    val bubbleColor = when (message.sender) {
+        AiChatSender.User -> AccentBlue.copy(alpha = 0.14f)
+        AiChatSender.Assistant -> CardBackgroundAlt
+        AiChatSender.System -> AccentAmber.copy(alpha = 0.16f)
+    }
+    val borderColor = when (message.sender) {
+        AiChatSender.User -> AccentBlue.copy(alpha = 0.4f)
+        AiChatSender.Assistant -> CardBorder
+        AiChatSender.System -> AccentAmber.copy(alpha = 0.34f)
+    }
+    val labelColor = when (message.sender) {
+        AiChatSender.User -> AccentBlue
+        AiChatSender.Assistant -> AccentGreen
+        AiChatSender.System -> AccentAmber
     }
 
-    CardBlock(title = "Later", modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (message.sender == AiChatSender.User) Alignment.End else Alignment.Start
+    ) {
         Text(
-            text = "Export, backups, and model controls can live here when the real settings flow exists.",
-            color = TextSecondary,
-            style = MaterialTheme.typography.bodyLarge
+            text = when (message.sender) {
+                AiChatSender.User -> "${message.mode.label} request"
+                AiChatSender.Assistant -> "${message.mode.label} reply"
+                AiChatSender.System -> "System"
+            },
+            color = labelColor,
+            style = MaterialTheme.typography.labelSmall
         )
+        Spacer(modifier = Modifier.height(6.dp))
+        Surface(
+            color = bubbleColor,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, borderColor),
+            modifier = Modifier.widthIn(max = if (fullscreen) 920.dp else 460.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = labelColor
+                    )
+                }
+                SelectionContainer {
+                    if (message.sender == AiChatSender.Assistant && !loading) {
+                        MarkdownStatementText(
+                            markdown = message.text,
+                            modifier = Modifier.fillMaxWidth(),
+                            copyableCodeFences = true
+                        )
+                    } else {
+                        Text(
+                            text = message.text,
+                            color = TextPrimary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatGeneratedTestSuiteSummary(testSuite: ProblemTestSuite): String {
+    return testSuite.cases.joinToString(separator = "\n\n") { testCase ->
+        buildString {
+            append(testCase.label)
+            append("\nInput:\n")
+            append(testCase.stdin.ifBlank { "(empty)" })
+            append("\n\nExpected:\n")
+            append(testCase.expectedOutput.ifBlank { "(empty)" })
+            if (testCase.comparisonMode != ProblemTestComparisonMode.Exact) {
+                append("\n\nComparison:\n")
+                append(testCase.comparisonMode.storageValue)
+            }
+            if (testCase.acceptableOutputs.isNotEmpty()) {
+                append("\n\nAcceptable outputs:\n")
+                append(testCase.acceptableOutputs.joinToString("\n"))
+            }
+        }
+    }
+}
+
+private fun buildAiProblemContext(
+    problem: ProblemListItem,
+    mode: PromptMode,
+    customTestSuite: ProblemTestSuite,
+    submissionTestSuite: ProblemTestSuite,
+    customExecutionResult: ProblemExecutionResult,
+    submissionExecutionResult: ProblemExecutionResult
+): String {
+    return if (mode == PromptMode.EXPLAIN) {
+        ProblemPromptFormatter.format(
+            problem = problem,
+            customTestSuite = customTestSuite,
+            submissionTestSuite = submissionTestSuite,
+            customExecutionResult = customExecutionResult,
+            submissionExecutionResult = submissionExecutionResult
+        )
+    } else {
+        ProblemPromptFormatter.format(problem = problem)
+    }
+}
+
+private fun defaultChatMessageForMode(mode: PromptMode): String {
+    return when (mode) {
+        PromptMode.HINT -> "Give me a hint."
+        PromptMode.EXPLAIN -> "Explain the solution."
+        PromptMode.REVIEW_CODE -> "Review my current code with inline comments."
+        PromptMode.TEST_CASES -> "Generate importable custom tests."
+        PromptMode.SOLVE -> "Show me the solution."
+    }
+}
+
+private fun compactModeDescription(mode: PromptMode): String {
+    return when (mode) {
+        PromptMode.HINT -> "Get a small next-step nudge."
+        PromptMode.EXPLAIN -> "Get the idea and complexity."
+        PromptMode.REVIEW_CODE -> "Review the draft with inline comments."
+        PromptMode.TEST_CASES -> "Generate tests for the Custom tab."
+        PromptMode.SOLVE -> "Get the full approach and code."
+    }
+}
+
+private fun modeSupportsFreeText(mode: PromptMode): Boolean {
+    return when (mode) {
+        PromptMode.REVIEW_CODE, PromptMode.SOLVE -> false
+        PromptMode.HINT, PromptMode.EXPLAIN, PromptMode.TEST_CASES -> true
+    }
+}
+
+private fun normalizedCodeForReview(code: String): String {
+    return code
+        .replace("\r\n", "\n")
+        .trim()
+}
+
+private fun composerLabel(mode: PromptMode, supportsFreeText: Boolean): String {
+    if (supportsFreeText) {
+        return when (mode) {
+            PromptMode.HINT -> "Hint request"
+            PromptMode.EXPLAIN -> "Explain request"
+            PromptMode.REVIEW_CODE -> "Code review request"
+            PromptMode.TEST_CASES -> "Test generation request"
+            PromptMode.SOLVE -> "Solve request"
+        }
     }
 
-    Spacer(modifier = Modifier.weight(1f))
+    return when (mode) {
+        PromptMode.REVIEW_CODE -> "Code review action"
+        PromptMode.SOLVE -> "Solve action"
+        PromptMode.HINT -> "Hint request"
+        PromptMode.EXPLAIN -> "Explain request"
+        PromptMode.TEST_CASES -> "Test generation request"
+    }
+}
+
+private fun fixedActionMessage(mode: PromptMode): String {
+    return when (mode) {
+        PromptMode.REVIEW_CODE -> "Returns an inline-commented copy of the current draft showing where runtime, space, and obvious issues come from."
+        PromptMode.SOLVE -> "Runs a fixed full-solution request for the current problem."
+        PromptMode.HINT,
+        PromptMode.EXPLAIN,
+        PromptMode.TEST_CASES -> ""
+    }
+}
+
+private fun emptyStateMessage(mode: PromptMode, compact: Boolean): String {
+    return if (!compact) {
+        when (mode) {
+            PromptMode.HINT -> "Ask for a hint, or leave the box empty to get a small nudge."
+            PromptMode.EXPLAIN -> "Ask for an explanation, or add what you want emphasized."
+            PromptMode.REVIEW_CODE -> "Review the current draft and get an inline-commented copy that explains runtime, space, and obvious issues."
+            PromptMode.TEST_CASES -> "Ask for importable custom tests. They append into the Custom tab."
+            PromptMode.SOLVE -> "Ask for a full solution, optionally steering the approach."
+        }
+    } else {
+        when (mode) {
+            PromptMode.HINT -> "Ask for a small hint."
+            PromptMode.EXPLAIN -> "Ask for a clear walkthrough."
+            PromptMode.REVIEW_CODE -> "Review the draft with inline comments."
+            PromptMode.TEST_CASES -> "Generate importable custom tests."
+            PromptMode.SOLVE -> "Ask for the full solution."
+        }
+    }
+}
+
+private fun actionButtonLabel(mode: PromptMode, compact: Boolean): String {
+    return if (!compact) {
+        mode.actionLabel
+    } else {
+        when (mode) {
+            PromptMode.HINT -> "Hint"
+            PromptMode.EXPLAIN -> "Explain"
+            PromptMode.REVIEW_CODE -> "Review"
+            PromptMode.TEST_CASES -> "Generate"
+            PromptMode.SOLVE -> "Solve"
+        }
+    }
+}
+
+private data class AiChatMessage(
+    val sender: AiChatSender,
+    val mode: PromptMode,
+    val text: String
+)
+
+private enum class AiChatSender {
+    User,
+    Assistant,
+    System
+}
+
+@Composable
+private fun ColumnScope.SettingsSidebarContent(
+    aiRuntimeController: AiRuntimeController,
+    themeMode: AppThemeMode,
+    onThemeModeChange: (AppThemeMode) -> Unit
+) {
+    val runtimeState by aiRuntimeController.runtimeState.collectAsState()
+    val scope = rememberCoroutineScope()
+    val settingsScrollState = rememberScrollState()
+    val runtimeBusy = runtimeState.phase in setOf(
+        AiRuntimePhase.Importing,
+        AiRuntimePhase.Downloading,
+        AiRuntimePhase.Loading,
+        AiRuntimePhase.Generating,
+        AiRuntimePhase.Unloading
+    )
+    val hasConfiguredModel = runtimeState.modelName != null
+    val showPresetChooser = !hasConfiguredModel && runtimeState.phase != AiRuntimePhase.Downloading
+    val visiblePresets = when {
+        showPresetChooser -> AiModelPreset.entries.toList()
+        runtimeState.preset != null -> listOfNotNull(runtimeState.preset)
+        else -> emptyList()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .verticalScroll(settingsScrollState),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        CardBlock(title = "Appearance", modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Theme",
+                color = TextPrimary,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ThemeModeOption(
+                    themeMode = AppThemeMode.Night,
+                    selected = themeMode == AppThemeMode.Night,
+                    onClick = { onThemeModeChange(AppThemeMode.Night) },
+                    modifier = Modifier.weight(1f)
+                )
+                ThemeModeOption(
+                    themeMode = AppThemeMode.Light,
+                    selected = themeMode == AppThemeMode.Light,
+                    onClick = { onThemeModeChange(AppThemeMode.Light) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        CardBlock(title = "AI Runtime", modifier = Modifier.fillMaxWidth()) {
+            SettingLine("Inference", "On-device llama.cpp")
+            Spacer(modifier = Modifier.height(6.dp))
+            SettingLine("Status", runtimeState.phase.displayLabel())
+            runtimeState.modelName?.let { modelName ->
+                Spacer(modifier = Modifier.height(6.dp))
+                SettingLine("Model", modelName)
+            }
+            runtimeState.preset?.let { preset ->
+                Spacer(modifier = Modifier.height(6.dp))
+                SettingLine("Preset", preset.shortLabel)
+            }
+            runtimeState.detail?.takeIf { it.isNotBlank() }?.let { detail ->
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = detail,
+                    color = if (runtimeState.phase == AiRuntimePhase.Error) AccentRed else TextMuted,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (runtimeState.phase == AiRuntimePhase.Downloading) {
+                Spacer(modifier = Modifier.height(10.dp))
+                LinearProgressIndicator(
+                    progress = { runtimeState.progress ?: 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = AccentBlue,
+                    trackColor = AccentBlue.copy(alpha = 0.18f)
+                )
+            }
+            if (visiblePresets.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = if (showPresetChooser) "Recommended models" else "Installed model",
+                    color = TextMuted,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    visiblePresets.forEach { preset ->
+                        ModelPresetCard(
+                            preset = preset,
+                            selected = runtimeState.preset == preset,
+                            phase = runtimeState.phase,
+                            busy = runtimeBusy,
+                            onDownload = {
+                                scope.launch {
+                                    runCatching {
+                                        aiRuntimeController.downloadPresetModel(preset)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            if (hasConfiguredModel) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PlainActionChip(
+                        label = "Load",
+                        accentColor = AccentGreen,
+                        onClick = if (!runtimeBusy && runtimeState.phase != AiRuntimePhase.Ready) {
+                            {
+                                scope.launch {
+                                    runCatching {
+                                        aiRuntimeController.loadConfiguredModel()
+                                    }
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    PlainActionChip(
+                        label = "Remove Model",
+                        accentColor = AccentRed,
+                        onClick = if (!runtimeBusy) {
+                            {
+                                scope.launch {
+                                    runCatching {
+                                        aiRuntimeController.removeConfiguredModel()
+                                    }
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (runtimeState.phase == AiRuntimePhase.Ready) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    PlainActionChip(
+                        label = "Unload From Memory",
+                        accentColor = AccentAmber,
+                        onClick = if (!runtimeBusy) {
+                            {
+                                scope.launch {
+                                    runCatching {
+                                        aiRuntimeController.unloadModel()
+                                    }
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+
+        CardBlock(title = "Settings", modifier = Modifier.fillMaxWidth()) {
+            SettingLine("Runtime", "Embedded Python")
+            Spacer(modifier = Modifier.height(6.dp))
+            SettingLine("AI", if (runtimeState.phase == AiRuntimePhase.Ready) "On-device model loaded" else "On-device model idle")
+            Spacer(modifier = Modifier.height(6.dp))
+            SettingLine("Theme", themeMode.label)
+        }
+    }
+}
+
+private fun AiRuntimePhase.displayLabel(): String {
+    return when (this) {
+        AiRuntimePhase.Unconfigured -> "No model selected"
+        AiRuntimePhase.Importing -> "Importing"
+        AiRuntimePhase.Downloading -> "Downloading"
+        AiRuntimePhase.Configured -> "Configured"
+        AiRuntimePhase.Loading -> "Loading"
+        AiRuntimePhase.Ready -> "Ready"
+        AiRuntimePhase.Generating -> "Generating"
+        AiRuntimePhase.Unloading -> "Unloading"
+        AiRuntimePhase.Error -> "Error"
+    }
+}
+
+@Composable
+private fun ModelPresetCard(
+    preset: AiModelPreset,
+    selected: Boolean,
+    phase: AiRuntimePhase,
+    busy: Boolean,
+    onDownload: () -> Unit
+) {
+    Surface(
+        color = if (selected) AccentBlue.copy(alpha = 0.12f) else CardBackgroundAlt,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, if (selected) AccentBlue.copy(alpha = 0.42f) else CardBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = preset.shortLabel,
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = preset.sizeLabel,
+                        color = TextMuted,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+                PlainActionChip(
+                    label = when {
+                        selected && phase == AiRuntimePhase.Downloading -> "Downloading"
+                        selected && phase == AiRuntimePhase.Loading -> "Loading"
+                        selected && phase == AiRuntimePhase.Ready -> "Current"
+                        else -> "Download"
+                    },
+                    accentColor = when {
+                        selected && phase == AiRuntimePhase.Ready -> AccentGreen
+                        selected -> AccentAmber
+                        else -> AccentBlue
+                    },
+                    onClick = if (!busy && !(selected && phase == AiRuntimePhase.Ready)) onDownload else null
+                )
+            }
+            Text(
+                text = preset.label,
+                color = TextSecondary,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = preset.description,
+                color = TextMuted,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeModeOption(
+    themeMode: AppThemeMode,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = if (selected) AccentBlue.copy(alpha = 0.14f) else CardBackgroundAlt,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, if (selected) AccentBlue.copy(alpha = 0.42f) else CardBorder),
+        modifier = modifier.clickable { onClick() }
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = themeMode.label,
+                color = if (selected) TextPrimary else TextSecondary,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = themeMode.description,
+                color = if (selected) AccentBlue else TextMuted,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+    }
 }
 
 @Composable
@@ -1247,11 +2212,13 @@ private fun DragHandle(
                 }
             }
     ) {
-        Text(
-            text = ":::",
-            color = TextMuted,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+        Icon(
+            painter = painterResource(R.drawable.ic_drag_handle),
+            contentDescription = "Reorder problem",
+            tint = TextMuted,
+            modifier = Modifier
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .size(16.dp)
         )
     }
 }

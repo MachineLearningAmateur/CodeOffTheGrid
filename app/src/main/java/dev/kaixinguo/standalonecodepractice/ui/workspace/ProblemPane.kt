@@ -1,5 +1,6 @@
 package dev.kaixinguo.standalonecodepractice.ui.workspace
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,8 +22,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.kaixinguo.standalonecodepractice.data.LocalPythonExecutionService
+import dev.kaixinguo.standalonecodepractice.data.ProblemInputNormalizer
+import dev.kaixinguo.standalonecodepractice.data.ProblemSubmissionSuiteFactory
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentBlue
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentGreen
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentRed
@@ -39,12 +45,15 @@ import kotlinx.coroutines.launch
 internal fun ProblemPane(
     problem: ProblemListItem,
     draftCode: String,
+    selectedTab: SupportTab,
+    onSelectedTabChange: (SupportTab) -> Unit,
+    onSolvedChange: (Boolean) -> Unit,
     customTestSuite: ProblemTestSuite,
     onCustomTestSuiteChange: (ProblemTestSuite) -> Unit,
+    onExecutionResultChange: (ProblemExecutionResult) -> Unit,
     localPythonExecutionService: LocalPythonExecutionService,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableStateOf(SupportTab.Problem) }
     var revealedHintCount by remember(problem.id) { mutableStateOf(0) }
     var executionResult by remember(problem.id) {
         mutableStateOf(
@@ -57,12 +66,49 @@ internal fun ProblemPane(
         )
     }
     val scope = rememberCoroutineScope()
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     val hints = remember(problem.id) { problem.hints }
-    val statementMarkdown = remember(problem.id) {
-        problem.statementMarkdown.ifBlank { problem.summary }
+    val normalizedExampleInput = remember(
+        problem.id,
+        problem.exampleInput,
+        problem.starterCode,
+        problem.executionPipeline
+    ) {
+        ProblemInputNormalizer.normalizeExampleInput(problem)
+    }
+    val statementMarkdown = remember(
+        problem.id,
+        problem.statementMarkdown,
+        problem.summary,
+        normalizedExampleInput,
+        problem.exampleOutput
+    ) {
+        val baseStatement = problem.statementMarkdown.ifBlank { problem.summary }
+        if (
+            Regex("""(?im)^\*\*Example(?:\s+\d+)?:\*\*$""").containsMatchIn(baseStatement) ||
+            (normalizedExampleInput.isBlank() && problem.exampleOutput.isBlank())
+        ) {
+            baseStatement
+        } else {
+            buildString {
+                append(baseStatement)
+                append("\n\n**Example 1:**\n\n```text\n")
+                if (normalizedExampleInput.isNotBlank()) {
+                    append("Input: ")
+                    append(normalizedExampleInput)
+                    append("\n\n")
+                }
+                if (problem.exampleOutput.isNotBlank()) {
+                    append("Output: ")
+                    append(problem.exampleOutput)
+                    append('\n')
+                }
+                append("```")
+            }
+        }
     }
     val contentScrollState = rememberScrollState()
-    val hasExamples = problem.exampleInput.isNotBlank() || problem.exampleOutput.isNotBlank()
     val activeJobTarget = executionResult
         .takeIf { it.status == ExecutionStatus.Running }
         ?.target
@@ -73,8 +119,37 @@ internal fun ProblemPane(
         ExecutionStatus.Idle -> TextSecondary
     }
     val enabledCustomCases = customTestSuite.cases.count { it.enabled }
+    val submissionTestSuite = remember(
+        problem.id,
+        problem.submissionTestSuite,
+        problem.statementMarkdown,
+        problem.exampleInput,
+        problem.exampleOutput,
+        problem.starterCode,
+        problem.executionPipeline
+    ) {
+        ProblemInputNormalizer.normalizeSubmissionTestSuite(
+            problem = problem,
+            testSuite = problem.submissionTestSuite.takeIf {
+                it.cases.isNotEmpty() || it.draft.isNotBlank()
+            } ?: ProblemSubmissionSuiteFactory.build(problem)
+        )
+    }
+    val enabledSubmissionCases = submissionTestSuite.cases.count { it.enabled }
     val hasStructuredCases = customTestSuite.cases.isNotEmpty()
     val hasRunnableExample = problem.exampleInput.isNotBlank() || problem.exampleOutput.isNotBlank()
+    val canToggleSolved = problem.solved || (
+        executionResult.target == ExecutionTarget.LocalSubmission &&
+            executionResult.status == ExecutionStatus.Passed
+        )
+    val copyResultBlock: (String, String) -> Unit = { label, value ->
+        clipboardManager.setText(AnnotatedString(value))
+        Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
+    }
+
+    androidx.compose.runtime.LaunchedEffect(problem.id, executionResult) {
+        onExecutionResultChange(executionResult)
+    }
 
     Surface(
         modifier = modifier,
@@ -106,7 +181,7 @@ internal fun ProblemPane(
                             SupportTabChip(
                                 label = tab.label,
                                 selected = selectedTab == tab,
-                                onClick = { selectedTab = tab }
+                                onClick = { onSelectedTabChange(tab) }
                             )
                         }
                         Spacer(modifier = Modifier.weight(1f))
@@ -117,13 +192,13 @@ internal fun ProblemPane(
                             enabled = activeJobTarget == null,
                             onClick = {
                                 if (activeJobTarget != null) return@ActionChip
-                                selectedTab = SupportTab.Results
-                                if (enabledCustomCases == 0) {
+                                onSelectedTabChange(SupportTab.Results)
+                                if (enabledSubmissionCases == 0) {
                                     executionResult = ProblemExecutionResult(
                                         target = ExecutionTarget.LocalSubmission,
                                         status = ExecutionStatus.Error,
                                         title = "Local Submission Error",
-                                        summary = "Add at least one enabled custom case before running local submission."
+                                        summary = "This problem does not have a bundled local submission suite yet."
                                     )
                                     return@ActionChip
                                 }
@@ -131,11 +206,12 @@ internal fun ProblemPane(
                                     target = ExecutionTarget.LocalSubmission,
                                     status = ExecutionStatus.Running,
                                     title = "Running Local Submission",
-                                    summary = "Executing the current Python draft against your saved local submission suite."
+                                    summary = "Executing the current Python draft against the built-in local submission suite."
                                 )
                                 scope.launch {
                                     executionResult = localPythonExecutionService.runLocalSubmission(
-                                        customTestSuite = customTestSuite,
+                                        executionPipeline = problem.executionPipeline,
+                                        testSuite = submissionTestSuite,
                                         draftCode = draftCode
                                     )
                                 }
@@ -196,30 +272,6 @@ internal fun ProblemPane(
                             )
                         }
 
-                        if (hasExamples) {
-                            CardBlock(title = "Examples", modifier = Modifier.fillMaxWidth()) {
-                                if (problem.exampleInput.isNotBlank()) {
-                                    ExampleValueBlock(
-                                        label = "Input",
-                                        value = problem.exampleInput,
-                                        labelColor = AccentRed,
-                                        valueColor = TextSecondary
-                                    )
-                                }
-                                if (problem.exampleInput.isNotBlank() && problem.exampleOutput.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                }
-                                if (problem.exampleOutput.isNotBlank()) {
-                                    ExampleValueBlock(
-                                        label = "Output",
-                                        value = problem.exampleOutput,
-                                        labelColor = AccentGreen,
-                                        valueColor = TextPrimary
-                                    )
-                                }
-                            }
-                        }
-
                         CardBlock(
                             title = "Hints",
                             modifier = Modifier.fillMaxWidth(),
@@ -269,10 +321,10 @@ internal fun ProblemPane(
                                         val nextIndex = customTestSuite.cases.size + 1
                                         onCustomTestSuiteChange(
                                             customTestSuite.copy(
-                                                cases = customTestSuite.cases + ProblemTestCase(
+                                                    cases = customTestSuite.cases + ProblemTestCase(
                                                     label = "Case $nextIndex",
                                                     stdin = if (customTestSuite.cases.isEmpty()) {
-                                                        problem.exampleInput
+                                                        normalizedExampleInput
                                                     } else {
                                                         ""
                                                     },
@@ -292,7 +344,7 @@ internal fun ProblemPane(
                                         enabled = activeJobTarget == null,
                                         onClick = {
                                             if (activeJobTarget != null) return@ActionChip
-                                            selectedTab = SupportTab.Results
+                                            onSelectedTabChange(SupportTab.Results)
                                             if (enabledCustomCases == 0) {
                                                 executionResult = ProblemExecutionResult(
                                                     target = ExecutionTarget.Custom,
@@ -310,7 +362,8 @@ internal fun ProblemPane(
                                             )
                                             scope.launch {
                                                 executionResult = localPythonExecutionService.runCustomSuite(
-                                                    customTestSuite = customTestSuite,
+                                                    executionPipeline = problem.executionPipeline,
+                                                    testSuite = customTestSuite,
                                                     draftCode = draftCode
                                                 )
                                             }
@@ -371,7 +424,7 @@ internal fun ProblemPane(
                                                     cases = listOf(
                                                         ProblemTestCase(
                                                             label = "Case 1",
-                                                            stdin = problem.exampleInput,
+                                                            stdin = normalizedExampleInput,
                                                             expectedOutput = problem.exampleOutput
                                                         )
                                                     )
@@ -422,12 +475,49 @@ internal fun ProblemPane(
                                 color = if (executionResult.status == ExecutionStatus.Running) TextSecondary else TextPrimary,
                                 style = MaterialTheme.typography.bodyMedium
                             )
+                            if (canToggleSolved) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = if (problem.solved) {
+                                            "This problem is currently marked solved."
+                                        } else {
+                                            "Passing local submission does not auto-mark this problem."
+                                        },
+                                        color = TextMuted,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    PlainActionChip(
+                                        label = if (problem.solved) "Mark Open" else "Mark Solved",
+                                        accentColor = if (problem.solved) AccentBlue else AccentGreen
+                                    ) {
+                                        onSolvedChange(!problem.solved)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Tap any result block to copy it.",
+                                color = TextMuted,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                             Spacer(modifier = Modifier.height(14.dp))
                             ExampleValueBlock(
                                 label = "Last Check",
                                 value = formatExecutionResult(executionResult),
                                 labelColor = AccentBlue,
-                                valueColor = TextPrimary
+                                valueColor = TextPrimary,
+                                onClick = {
+                                    copyResultBlock(
+                                        "Last check",
+                                        formatExecutionResult(executionResult)
+                                    )
+                                }
                             )
                             if (executionResult.stdout.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(14.dp))
@@ -435,7 +525,8 @@ internal fun ProblemPane(
                                     label = "Stdout",
                                     value = executionResult.stdout,
                                     labelColor = AccentGreen,
-                                    valueColor = TextPrimary
+                                    valueColor = TextPrimary,
+                                    onClick = { copyResultBlock("Stdout", executionResult.stdout) }
                                 )
                             }
                             if (executionResult.stderr.isNotBlank()) {
@@ -444,21 +535,24 @@ internal fun ProblemPane(
                                     label = "Errors",
                                     value = executionResult.stderr,
                                     labelColor = AccentRed,
-                                    valueColor = TextPrimary
+                                    valueColor = TextPrimary,
+                                    onClick = { copyResultBlock("Errors", executionResult.stderr) }
                                 )
                             }
                             if (executionResult.cases.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(14.dp))
                                 executionResult.cases.forEachIndexed { index, caseResult ->
+                                    val caseResultText = buildCaseResultText(caseResult)
                                     ExampleValueBlock(
                                         label = caseResult.label,
-                                        value = buildCaseResultText(caseResult),
+                                        value = caseResultText,
                                         labelColor = when (caseResult.status) {
                                             TestCaseStatus.Passed -> AccentGreen
                                             TestCaseStatus.Failed, TestCaseStatus.Error -> AccentRed
                                             else -> AccentBlue
                                         },
-                                        valueColor = TextPrimary
+                                        valueColor = TextPrimary,
+                                        onClick = { copyResultBlock(caseResult.label, caseResultText) }
                                     )
                                     if (index < executionResult.cases.lastIndex) {
                                         Spacer(modifier = Modifier.height(12.dp))
@@ -501,6 +595,14 @@ private fun buildCaseResultText(result: ProblemTestCaseResult): String {
     return buildString {
         append("Status: ")
         append(result.status.name.lowercase().replaceFirstChar(Char::uppercase))
+        if (
+            result.input.isNotBlank() &&
+            (result.status == TestCaseStatus.Failed || result.status == TestCaseStatus.Error)
+        ) {
+            append('\n')
+            append("Input: ")
+            append(result.input)
+        }
         if (result.expectedOutput.isNotBlank()) {
             append('\n')
             append("Expected: ")
