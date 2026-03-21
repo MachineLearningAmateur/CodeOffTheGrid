@@ -29,7 +29,7 @@ internal class GeneratedProblemDraftJsonParser {
             difficulty = problemJson.optString("difficulty").trim(),
             summary = problemJson.optString("summary").trim(),
             statementMarkdown = problemJson.optString("statementMarkdown").trim(),
-            exampleInput = problemJson.optString("exampleInput"),
+            exampleInput = normalizeGeneratedExampleInput(problemJson.optString("exampleInput")),
             exampleOutput = problemJson.optString("exampleOutput"),
             starterCode = problemJson.optString("starterCode"),
             hints = problemJson.optJSONArray("hints")
@@ -64,6 +64,31 @@ internal class GeneratedProblemDraftJsonParser {
             error("AI response did not contain complete JSON")
         }
         return unfenced.substring(objectStart, objectEnd + 1)
+    }
+
+    private fun normalizeGeneratedExampleInput(rawInput: String): String {
+        val trimmed = rawInput.trim()
+        if (trimmed.isBlank()) return trimmed
+
+        val withoutInputPrefix = trimmed.replaceFirst(
+            Regex("""^(?i)(example\s+)?input\s*:\s*"""),
+            ""
+        )
+
+        return withoutInputPrefix
+            .lines()
+            .map { line ->
+                val normalizedLine = line.trim()
+                val assignmentMatch = Regex("""^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$""")
+                    .matchEntire(normalizedLine)
+                if (assignmentMatch != null) {
+                    "${assignmentMatch.groupValues[1]} = ${assignmentMatch.groupValues[2].trim()}"
+                } else {
+                    normalizedLine
+                }
+            }
+            .joinToString("\n")
+            .trim()
     }
 
     private fun JSONArray.toStringList(): List<String> {

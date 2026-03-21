@@ -39,11 +39,11 @@ The app is designed around on-device inference rather than a hosted API.
 
 Current intended model strategy:
 
-- recommend the Android-friendly `Qwen2.5-Coder-1.5B-Instruct` GGUF preset in-app
+- let users download the Android-friendly `Qwen2.5-Coder-1.5B-Instruct` GGUF preset directly in-app
 - allow users to import other compatible GGUF files themselves
 - keep larger or differently licensed models as manual-import paths instead of first-class bundled recommendations
 
-The current in-app recommended preset is `Qwen2.5-Coder-1.5B-Instruct` in GGUF form, which is the smaller supported path that is practical on more devices.
+The current in-app downloadable and recommended preset is `Qwen2.5-Coder-1.5B-Instruct` in GGUF form, which is the smaller supported path that is practical on more devices.
 
 Users can also import compatible `.gguf` files manually when they want a different model. Imported models are stored on-device and can be switched from Settings.
 

@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -57,6 +58,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -85,6 +87,8 @@ import dev.kaixinguo.standalonecodepractice.ui.theme.SidebarBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextMuted
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextPrimary
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextSecondary
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @Composable
@@ -155,14 +159,27 @@ internal fun SidebarPane(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "View",
-                            color = TextMuted,
-                            style = MaterialTheme.typography.labelSmall,
+                        Box(
                             modifier = Modifier
                                 .padding(horizontal = 4.dp)
                                 .weight(1f)
-                        )
+                        ) {
+                            Surface(
+                                color = CardBackgroundAlt,
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, CardBorder),
+                                modifier = Modifier.size(width = 44.dp, height = 40.dp)
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(2.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
                         ArrowActionChip(
                             direction = ArrowDirection.Collapse,
                             onClick = onToggleCollapsed
@@ -1202,6 +1219,8 @@ private fun ColumnScope.AskAiSidebarContent(
     var promptDraft by remember(selectedProblem?.id, composerActive) { mutableStateOf("") }
     var messages by remember(selectedProblem?.id, composerActive) { mutableStateOf(listOf<AiChatMessage>()) }
     var isLoading by remember { mutableStateOf(false) }
+    var activeRequestJob by remember { mutableStateOf<Job?>(null) }
+    var activeRequestMode by remember { mutableStateOf<PromptMode?>(null) }
     val composerStarterCode = remember(composerSession?.draft) {
         composerSession?.draft
             ?.effectiveStarterCode()
@@ -1262,6 +1281,12 @@ private fun ColumnScope.AskAiSidebarContent(
         chatScrollState.scrollTo(chatScrollState.maxValue)
     }
 
+    LaunchedEffect(isLoading) {
+        if (isLoading) {
+            modeMenuExpanded = false
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1304,8 +1329,13 @@ private fun ColumnScope.AskAiSidebarContent(
                         AiModeSelectorChip(
                             selectedMode = selectedMode,
                             availableModes = availableModes,
+                            enabled = !isLoading,
                             expanded = modeMenuExpanded,
-                            onExpandedChange = { modeMenuExpanded = it },
+                            onExpandedChange = { expanded ->
+                                if (!isLoading) {
+                                    modeMenuExpanded = expanded
+                                }
+                            },
                             onModeSelected = { selectedMode = it },
                             modifier = Modifier.weight(1f)
                         )
@@ -1366,8 +1396,8 @@ private fun ColumnScope.AskAiSidebarContent(
                         AiChatBubble(
                             message = AiChatMessage(
                                 sender = AiChatSender.Assistant,
-                                mode = selectedMode,
-                                text = when (selectedMode) {
+                                mode = activeRequestMode ?: selectedMode,
+                                text = when (activeRequestMode ?: selectedMode) {
                                     PromptMode.CREATE_PROBLEM -> "Drafting the problem..."
                                     PromptMode.HINT -> "Thinking through a hint..."
                                     PromptMode.EXPLAIN -> "Putting the explanation together..."
@@ -1421,9 +1451,13 @@ private fun ColumnScope.AskAiSidebarContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     PlainActionChip(
-                        label = "Clear Chat",
-                        accentColor = AccentAmber,
-                        onClick = if (messages.isNotEmpty() && !isLoading) {
+                        label = if (isLoading) "Cancel" else "Clear Chat",
+                        accentColor = if (isLoading) AccentRed else AccentAmber,
+                        onClick = if (isLoading) {
+                            {
+                                activeRequestJob?.cancel()
+                            }
+                        } else if (messages.isNotEmpty()) {
                             { messages = emptyList() }
                         } else {
                             null
@@ -1481,9 +1515,10 @@ private fun ColumnScope.AskAiSidebarContent(
                                     promptDraft = ""
                                 }
                                 isLoading = true
-                                scope.launch {
-                                    runCatching {
-                                        when (selectedMode) {
+                                activeRequestMode = selectedMode
+                                activeRequestJob = scope.launch {
+                                    try {
+                                        val response = when (selectedMode) {
                                             PromptMode.CREATE_PROBLEM -> {
                                                 val generatedProblem = aiAssistant.createProblem(
                                                     problem = problemPrompt,
@@ -1521,20 +1556,30 @@ private fun ColumnScope.AskAiSidebarContent(
                                             }
                                             PromptMode.SOLVE -> aiAssistant.solveProblem(problemPrompt, codeForMode, explicitRequest)
                                         }
-                                    }.onSuccess { response ->
                                         messages = messages + AiChatMessage(
                                             sender = AiChatSender.Assistant,
-                                            mode = selectedMode,
+                                            mode = activeRequestMode ?: selectedMode,
                                             text = response.trim()
                                         )
-                                    }.onFailure { throwable ->
+                                    } catch (throwable: Throwable) {
+                                        if (throwable is CancellationException) {
+                                            messages = messages + AiChatMessage(
+                                                sender = AiChatSender.System,
+                                                mode = activeRequestMode ?: selectedMode,
+                                                text = "Request canceled."
+                                            )
+                                        } else {
                                         messages = messages + AiChatMessage(
                                             sender = AiChatSender.System,
-                                            mode = selectedMode,
+                                            mode = activeRequestMode ?: selectedMode,
                                             text = throwable.message ?: "Unknown AI runtime error"
                                         )
                                     }
-                                    isLoading = false
+                                    } finally {
+                                        activeRequestJob = null
+                                        activeRequestMode = null
+                                        isLoading = false
+                                    }
                                 }
                             }
                         } else {
@@ -1551,6 +1596,7 @@ private fun ColumnScope.AskAiSidebarContent(
 private fun AiModeSelectorChip(
     selectedMode: PromptMode,
     availableModes: List<PromptMode>,
+    enabled: Boolean,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onModeSelected: (PromptMode) -> Unit,
@@ -1563,7 +1609,7 @@ private fun AiModeSelectorChip(
             border = BorderStroke(1.dp, CardBorder),
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onExpandedChange(true) }
+                .then(if (enabled) Modifier.clickable { onExpandedChange(true) } else Modifier)
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -1572,7 +1618,7 @@ private fun AiModeSelectorChip(
             ) {
                 Text(
                     text = selectedMode.label,
-                    color = TextPrimary,
+                    color = if (enabled) TextPrimary else TextMuted,
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1581,14 +1627,14 @@ private fun AiModeSelectorChip(
                 Icon(
                     painter = painterResource(R.drawable.ic_chevron_down),
                     contentDescription = "Select AI mode",
-                    tint = TextMuted,
+                    tint = if (enabled) TextMuted else TextMuted.copy(alpha = 0.6f),
                     modifier = Modifier.size(14.dp)
                 )
             }
         }
 
         DropdownMenu(
-            expanded = expanded,
+            expanded = enabled && expanded,
             onDismissRequest = { onExpandedChange(false) }
         ) {
             availableModes.forEach { promptMode ->
@@ -2020,6 +2066,7 @@ private fun ColumnScope.SettingsSidebarContent(
                         InstalledModelCard(
                             model = model,
                             currentModelPath = runtimeState.currentModelPath,
+                            phase = runtimeState.phase,
                             busy = runtimeBusy,
                             onSelect = {
                                 scope.launch {
@@ -2046,10 +2093,13 @@ private fun ColumnScope.SettingsSidebarContent(
                 ) {
                     visiblePresets.forEach { preset ->
                         val installedPresetModel = installedModels.firstOrNull { it.preset == preset }
+                        val presetInstalled = installedPresetModel != null ||
+                            (runtimeState.preset == preset && hasConfiguredModel)
                         ModelPresetCard(
                             preset = preset,
+                            installed = presetInstalled,
                             installedModel = installedPresetModel,
-                            currentModelPath = runtimeState.currentModelPath,
+                            selected = runtimeState.preset == preset && hasConfiguredModel,
                             phase = runtimeState.phase,
                             busy = runtimeBusy,
                             onDownload = {
@@ -2163,14 +2213,14 @@ private fun AiRuntimePhase.displayLabel(): String {
 @Composable
 private fun ModelPresetCard(
     preset: AiModelPreset,
+    installed: Boolean,
     installedModel: AiStoredModel?,
-    currentModelPath: String?,
+    selected: Boolean,
     phase: AiRuntimePhase,
     busy: Boolean,
     onDownload: () -> Unit,
     onSelect: () -> Unit
 ) {
-    val selected = installedModel?.path == currentModelPath
     Surface(
         color = if (selected) AccentBlue.copy(alpha = 0.12f) else CardBackgroundAlt,
         shape = RoundedCornerShape(14.dp),
@@ -2198,7 +2248,7 @@ private fun ModelPresetCard(
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
-                if (installedModel == null) {
+                if (!installed) {
                     PlainActionChip(
                         label = if (phase == AiRuntimePhase.Downloading) "Downloading" else "Download",
                         accentColor = AccentBlue,
@@ -2239,6 +2289,7 @@ private fun ModelPresetCard(
 private fun InstalledModelCard(
     model: AiStoredModel,
     currentModelPath: String?,
+    phase: AiRuntimePhase,
     busy: Boolean,
     onSelect: () -> Unit
 ) {
@@ -2267,8 +2318,17 @@ private fun InstalledModelCard(
                 )
             }
             PlainActionChip(
-                label = if (selected) "Current" else "Switch",
-                accentColor = if (selected) AccentGreen else AccentBlue,
+                label = when {
+                    selected && phase == AiRuntimePhase.Loading -> "Loading"
+                    selected && phase == AiRuntimePhase.Ready -> "Current"
+                    selected -> "Selected"
+                    else -> "Switch"
+                },
+                accentColor = when {
+                    selected && phase == AiRuntimePhase.Ready -> AccentGreen
+                    selected -> AccentAmber
+                    else -> AccentBlue
+                },
                 onClick = if (!busy && !selected) onSelect else null
             )
         }

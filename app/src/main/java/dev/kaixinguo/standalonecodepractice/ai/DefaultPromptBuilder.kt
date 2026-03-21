@@ -37,29 +37,33 @@ internal class DefaultPromptBuilder : PromptBuilder {
         }
 
         val lowercaseCode = code.lowercase()
-        val hasVisibleLoops = Regex("""(?m)^\s*(for|while)\b""").containsMatchIn(code)
-        val visibleReturnLines = Regex("""(?m)^\s*return\b.*$""")
-            .findAll(code)
-            .map { it.value.trim() }
+        val trimmedLines = code.lineSequence()
+            .map { it.trim() }
+            .toList()
+        val hasVisibleLoops = trimmedLines.any { line ->
+            line.startsWith("for ") || line.startsWith("while ")
+        }
+        val visibleReturnLines = trimmedLines.asSequence()
+            .filter { line -> line.startsWith("return") }
             .take(3)
             .toList()
-        val visibleFunctionNames = Regex("""(?m)^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(""")
-            .findAll(code)
-            .map { it.groupValues[1] }
+        val visibleFunctionNames = trimmedLines.asSequence()
+            .mapNotNull(::extractFunctionName)
             .toList()
         val hasVisibleRecursion = visibleFunctionNames.any { functionName ->
-            val escapedFunctionName = Regex.escape(functionName)
-            Regex("""\b$escapedFunctionName\s*\(""").containsMatchIn(
-                code.substringAfter("def $functionName", missingDelimiterValue = "")
-            )
+            code.substringAfter("def $functionName", missingDelimiterValue = "")
+                .contains("$functionName(")
         }
-        val hasVisibleComprehensions = Regex("""(?s)(\[[^\]]*\bfor\b[^\]]*])|(\{[^\}]*\bfor\b[^\}]*})""")
-            .containsMatchIn(code)
-        val hasVisibleSorting = Regex("""\bsorted\s*\(|\.sort\s*\(""").containsMatchIn(lowercaseCode)
-        val hasVisibleSetOrDictConstruction = Regex("""\b(set|dict|counter|defaultdict)\s*\(""")
-            .containsMatchIn(lowercaseCode)
-        val hasVisibleHeapOrQueueOps = Regex("""\b(heapq|heappush|heappop|deque)\b""")
-            .containsMatchIn(lowercaseCode)
+        val hasVisibleComprehensions = trimmedLines.any { line ->
+            !line.startsWith("for ") &&
+                (line.contains('[') || line.contains('{')) &&
+                line.contains(" for ")
+        }
+        val hasVisibleSorting = lowercaseCode.contains("sorted(") || lowercaseCode.contains(".sort(")
+        val hasVisibleSetOrDictConstruction = listOf("set(", "dict(", "counter(", "defaultdict(")
+            .any { token -> lowercaseCode.contains(token) }
+        val hasVisibleHeapOrQueueOps = listOf("heapq", "heappush", "heappop", "deque")
+            .any { token -> lowercaseCode.contains(token) }
 
         return buildString {
             appendLine("- Visible loops: ${yesNo(hasVisibleLoops)}")
@@ -82,5 +86,15 @@ internal class DefaultPromptBuilder : PromptBuilder {
 
     private fun yesNo(value: Boolean): String {
         return if (value) "yes" else "no"
+    }
+
+    private fun extractFunctionName(line: String): String? {
+        if (!line.startsWith("def ")) return null
+        val signature = line.removePrefix("def ").substringBefore('(').trim()
+        return signature.takeIf { candidate ->
+            candidate.isNotBlank() &&
+                (candidate.first().isLetter() || candidate.first() == '_') &&
+                candidate.all { it.isLetterOrDigit() || it == '_' }
+        }
     }
 }
