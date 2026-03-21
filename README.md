@@ -1,8 +1,22 @@
 # OffTheGrid
 
-OffTheGrid is an Android app for practicing interview-style coding problems in one place without depending on a cloud AI service.
+OffTheGrid is an offline-first Android app for practicing interview-style coding problems without depending on a cloud AI service.
 
-It combines a local problem workspace, Python execution, a built-in problem catalog, and an on-device GGUF-backed AI assistant so users can read problems, write code, test ideas, and get help directly on the device.
+It combines a three-pane coding workspace, local Python execution, a built-in problem catalog, and an on-device GGUF-backed AI assistant so users can read problems, write code, test ideas, and get help directly on the device.
+
+## Screenshots
+
+### Workspace
+
+<img src="docs/images/offthegrid-workspace.png" alt="OffTheGrid workspace with problem list, code editor, and problem details" width="1000" />
+
+### Ask AI
+
+<img src="docs/images/offthegrid-ask-ai.png" alt="OffTheGrid Ask AI hint mode alongside the workspace" width="1000" />
+
+### Settings and Models
+
+<img src="docs/images/offthegrid-settings.png" alt="OffTheGrid settings showing theme controls and on-device model management" width="1000" />
 
 ## Purpose
 
@@ -17,6 +31,7 @@ This app is meant to feel like a portable coding-practice workspace for:
 ## Core Features
 
 - Built-in coding problem catalog with folders, sets, and per-problem workspace state
+- Three-pane tablet workspace with problem browsing, coding, and reference/testing visible at the same time
 - Python editing and local execution
 - Custom test cases plus local submission-style validation
 - Ask AI modes for:
@@ -45,7 +60,7 @@ Current intended model strategy:
 
 The current in-app downloadable and recommended preset is `Qwen2.5-Coder-1.5B-Instruct` in GGUF form, which is the smaller supported path that is practical on more devices.
 
-Users can also import compatible `.gguf` files manually when they want a different model. Imported models are stored on-device and can be switched from Settings. For the broader official Qwen2.5-Coder model family, including larger instruct variants, see the Hugging Face collection: `https://huggingface.co/collections/Qwen/qwen25-coder`.
+Users can also import compatible `.gguf` files manually when they want a different model. Imported models are stored on-device and can be switched from Settings. For the broader official Qwen2.5-Coder model family, including larger instruct variants, see the [Hugging Face collection](https://huggingface.co/collections/Qwen/qwen25-coder).
 
 ## Problem Composer
 
