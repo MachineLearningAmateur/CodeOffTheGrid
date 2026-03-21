@@ -60,7 +60,7 @@ Current intended model strategy:
 
 The current in-app downloadable and recommended preset is `Qwen2.5-Coder-1.5B-Instruct` in GGUF form, which is the smaller supported path that is practical on more devices.
 
-Users can also import compatible `.gguf` files manually when they want a different model. Imported models are stored on-device and can be switched from Settings. For the broader official Qwen2.5-Coder model family, including larger instruct variants, see the [Hugging Face collection](https://huggingface.co/collections/Qwen/qwen25-coder).
+Users can also import compatible `.gguf` files manually when they want a different model. Imported models are stored on-device and can be switched from Settings. For direct official GGUF downloads, including the `q4`, `q5`, and `q6` files, see the [Qwen2.5-Coder-1.5B-Instruct-GGUF files page](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/tree/main).
 
 ## Problem Composer
 
