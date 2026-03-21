@@ -10,6 +10,8 @@ build/
 
 # Local machine config
 local.properties
+keystore.properties
+*.jks
 
 # Native / NDK
 .externalNativeBuild/
