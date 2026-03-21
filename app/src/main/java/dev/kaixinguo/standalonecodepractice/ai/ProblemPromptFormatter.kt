@@ -104,11 +104,6 @@ internal object ProblemPromptFormatter {
             appendLine("Execution pipeline override: ${draft.executionPipelineOverride.ifBlank { "Auto Detect" }}")
             appendLine("Advanced submission suite JSON:")
             appendLine(truncateBlock(draft.submissionTestSuiteJson.ifBlank { "(blank)" }, MAX_SUBMISSION_SUITE_CHARS))
-            appendLine()
-            appendLine("Missing or weak fields:")
-            missingComposerFields(draft).forEach { field ->
-                appendLine("- $field")
-            }
         }.trim()
 
         return truncateBlock(context, MAX_CONTEXT_CHARS)
@@ -256,19 +251,6 @@ internal object ProblemPromptFormatter {
                     result.summary == "No recorded custom run yet." ||
                     result.summary == "No recorded local submission run yet."
                 )
-    }
-
-    private fun missingComposerFields(draft: ProblemComposerDraft): List<String> {
-        return buildList {
-            if (draft.title.isBlank()) add("Title")
-            if (draft.statementMarkdown.isBlank()) add("Statement")
-            if (draft.exampleInput.isBlank()) add("Example Input")
-            if (draft.exampleOutput.isBlank()) add("Example Output")
-            if (draft.hintsText.isBlank()) add("Hints")
-            if (draft.summary.isBlank()) add("About This Problem")
-            if (draft.destinationSetId.isBlank()) add("Destination Set")
-            if (isEmpty()) add("None")
-        }
     }
 
     private const val MAX_CONTEXT_CHARS = 5_200

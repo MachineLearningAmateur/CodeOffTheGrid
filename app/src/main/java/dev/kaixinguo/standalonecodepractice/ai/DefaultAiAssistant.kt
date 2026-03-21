@@ -1,16 +1,21 @@
 package dev.kaixinguo.standalonecodepractice.ai
 
+import dev.kaixinguo.standalonecodepractice.data.SharedProblemFile
+
 internal class DefaultAiAssistant(
     private val promptBuilder: PromptBuilder,
     private val localQwenEngine: LocalQwenEngine,
-    private val generatedTestSuiteJsonParser: GeneratedTestSuiteJsonParser = GeneratedTestSuiteJsonParser()
+    private val generatedTestSuiteJsonParser: GeneratedTestSuiteJsonParser = GeneratedTestSuiteJsonParser(),
+    private val generatedProblemDraftJsonParser: GeneratedProblemDraftJsonParser = GeneratedProblemDraftJsonParser()
 ) : AiAssistant {
-    override suspend fun createProblem(problem: String, code: String?, request: String?): String {
-        return generate(
+    override suspend fun createProblem(problem: String, code: String?, request: String?): SharedProblemFile {
+        return generatedProblemDraftJsonParser.parse(
+            generate(
             mode = PromptMode.CREATE_PROBLEM,
             problem = problem,
             code = code,
             request = request
+            )
         )
     }
 

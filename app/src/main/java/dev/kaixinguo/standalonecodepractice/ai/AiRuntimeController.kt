@@ -10,6 +10,8 @@ internal interface AiRuntimeController {
 
     suspend fun downloadPresetModel(preset: AiModelPreset)
 
+    suspend fun selectStoredModel(path: String)
+
     suspend fun loadConfiguredModel()
 
     suspend fun unloadModel()

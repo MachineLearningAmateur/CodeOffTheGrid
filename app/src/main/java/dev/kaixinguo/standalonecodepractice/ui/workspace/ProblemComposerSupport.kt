@@ -135,6 +135,33 @@ internal fun ProblemComposerDraft.withImportedProblem(sharedProblem: SharedProbl
     )
 }
 
+internal fun ProblemComposerDraft.withGeneratedProblem(sharedProblem: SharedProblemFile): ProblemComposerDraft {
+    val generatedStatement = sharedProblem.statementMarkdown.ifBlank { sharedProblem.summary }
+    val generatedHints = sharedProblem.hints
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+
+    return copy(
+        title = sharedProblem.title.takeIf { it.isNotBlank() } ?: title,
+        difficulty = sharedProblem.difficulty.takeIf { it.isNotBlank() } ?: difficulty,
+        summary = sharedProblem.summary.takeIf { it.isNotBlank() } ?: summary,
+        statementMarkdown = generatedStatement.takeIf { it.isNotBlank() } ?: statementMarkdown,
+        exampleInput = sharedProblem.exampleInput.takeIf { it.isNotBlank() } ?: exampleInput,
+        exampleOutput = sharedProblem.exampleOutput.takeIf { it.isNotBlank() } ?: exampleOutput,
+        starterCode = sharedProblem.starterCode.takeIf { it.isNotBlank() } ?: starterCode,
+        starterCodeMode = when {
+            sharedProblem.starterCode.isNotBlank() -> ProblemStarterCodeMode.Manual
+            starterCode.isNotBlank() -> starterCodeMode
+            else -> ProblemStarterCodeMode.Auto
+        },
+        hintsText = generatedHints.takeIf { it.isNotEmpty() }?.joinToString("\n") ?: hintsText,
+        submissionTestSuiteJson = sharedProblem.submissionTestSuite
+            ?.let { ProblemTestSuiteJsonCodec.encodeToJson(it, includeIds = false).toString(2) }
+            ?: submissionTestSuiteJson,
+        executionPipelineOverride = sharedProblem.executionPipeline?.storageValue ?: executionPipelineOverride
+    )
+}
+
 internal fun ProblemComposerDraft.toSharedProblemFile(): SharedProblemFile {
     return SharedProblemFile(
         title = title.trim(),

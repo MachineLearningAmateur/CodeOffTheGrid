@@ -21,6 +21,18 @@ class OnDeviceLlamaCppQwenEngineTest {
     }
 
     @Test
+    fun buildDownloadFailureRetryDetail_usesImprovedGrammar() {
+        val detail = buildDownloadFailureRetryDetail(
+            UnknownHostException("Unable to resolve host huggingface.co")
+        )
+
+        assertEquals(
+            "This device cannot resolve huggingface.co right now. Check the emulator or device internet connection and DNS, then retry. Select a model to try again.",
+            detail
+        )
+    }
+
+    @Test
     fun resolvePostDownloadLoadFailureDetail_explainsX86EmulatorLimitation() {
         val detail = resolvePostDownloadLoadFailureDetail(
             throwable = UnsupportedArchitectureException(),

@@ -1,5 +1,7 @@
 package dev.kaixinguo.standalonecodepractice.ui.workspace
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -37,6 +39,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +67,7 @@ import dev.kaixinguo.standalonecodepractice.ai.AiAssistant
 import dev.kaixinguo.standalonecodepractice.ai.AiModelPreset
 import dev.kaixinguo.standalonecodepractice.ai.AiRuntimeController
 import dev.kaixinguo.standalonecodepractice.ai.AiRuntimePhase
+import dev.kaixinguo.standalonecodepractice.ai.AiStoredModel
 import dev.kaixinguo.standalonecodepractice.ai.ProblemPromptFormatter
 import dev.kaixinguo.standalonecodepractice.ai.PromptMode
 import dev.kaixinguo.standalonecodepractice.data.ProblemInputNormalizer
@@ -109,6 +113,7 @@ internal fun SidebarPane(
     onToggleAskAiFullscreen: () -> Unit,
     selectedProblem: ProblemListItem?,
     composerSession: ProblemComposerSession?,
+    onComposerSessionChange: (ProblemComposerSession) -> Unit,
     currentDraftCode: String,
     currentCustomTestSuite: ProblemTestSuite,
     customExecutionResult: ProblemExecutionResult,
@@ -200,12 +205,14 @@ internal fun SidebarPane(
                         onToggleFullscreen = onToggleAskAiFullscreen,
                         selectedProblem = selectedProblem,
                         composerSession = composerSession,
+                        onComposerSessionChange = onComposerSessionChange,
                         currentDraftCode = currentDraftCode,
                         currentCustomTestSuite = currentCustomTestSuite,
                         customExecutionResult = customExecutionResult,
                         submissionExecutionResult = submissionExecutionResult,
                         aiAssistant = aiAssistant,
-                        onGeneratedCustomTests = onGeneratedCustomTests
+                        onGeneratedCustomTests = onGeneratedCustomTests,
+                        aiRuntimeController = aiRuntimeController
                     )
                     SidebarMode.Settings -> SettingsSidebarContent(
                         aiRuntimeController = aiRuntimeController,
@@ -1170,16 +1177,20 @@ private fun ColumnScope.AskAiSidebarContent(
     onToggleFullscreen: () -> Unit,
     selectedProblem: ProblemListItem?,
     composerSession: ProblemComposerSession?,
+    onComposerSessionChange: (ProblemComposerSession) -> Unit,
     currentDraftCode: String,
     currentCustomTestSuite: ProblemTestSuite,
     customExecutionResult: ProblemExecutionResult,
     submissionExecutionResult: ProblemExecutionResult,
     aiAssistant: AiAssistant,
-    onGeneratedCustomTests: (ProblemTestSuite) -> Unit
+    onGeneratedCustomTests: (ProblemTestSuite) -> Unit,
+    aiRuntimeController: AiRuntimeController
 ) {
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
+    val aiRuntimeState by aiRuntimeController.runtimeState.collectAsState()
     val composerActive = composerSession != null
+    val latestComposerSession = rememberUpdatedState(composerSession)
     val availableModes = if (composerActive) {
         listOf(PromptMode.CREATE_PROBLEM)
     } else {
@@ -1447,7 +1458,8 @@ private fun ColumnScope.AskAiSidebarContent(
                                 val userMessage = promptText.ifBlank { defaultChatMessageForMode(selectedMode) }
                                 val problemPrompt = if (composerActive) {
                                     buildAiComposerContext(
-                                        draft = composerSession!!.draft
+                                        draft = composerSession!!.draft,
+                                        generatorModelName = aiRuntimeState.modelName
                                     )
                                 } else {
                                     buildAiProblemContext(
@@ -1472,7 +1484,26 @@ private fun ColumnScope.AskAiSidebarContent(
                                 scope.launch {
                                     runCatching {
                                         when (selectedMode) {
-                                            PromptMode.CREATE_PROBLEM -> aiAssistant.createProblem(problemPrompt, codeForMode, explicitRequest)
+                                            PromptMode.CREATE_PROBLEM -> {
+                                                val generatedProblem = aiAssistant.createProblem(
+                                                    problem = problemPrompt,
+                                                    code = codeForMode,
+                                                    request = explicitRequest
+                                                )
+                                                val currentSession = latestComposerSession.value
+                                                    ?: error("Problem composer is no longer open.")
+                                                val updatedDraft = currentSession.draft.withGeneratedProblem(generatedProblem)
+                                                onComposerSessionChange(
+                                                    currentSession.copy(
+                                                        draft = updatedDraft,
+                                                        errorMessage = null
+                                                    )
+                                                )
+                                                buildGeneratedProblemDraftSummary(
+                                                    previousDraft = currentSession.draft,
+                                                    updatedDraft = updatedDraft
+                                                )
+                                            }
                                             PromptMode.HINT -> aiAssistant.generateHint(problemPrompt, codeForMode, explicitRequest)
                                             PromptMode.EXPLAIN -> aiAssistant.explainSolution(problemPrompt, codeForMode, explicitRequest)
                                             PromptMode.REVIEW_CODE -> aiAssistant.reviewCode(problemPrompt, codeForMode, explicitRequest)
@@ -1688,7 +1719,7 @@ private fun buildAiProblemContext(
     customExecutionResult: ProblemExecutionResult,
     submissionExecutionResult: ProblemExecutionResult
 ): String {
-    return if (mode == PromptMode.EXPLAIN) {
+    return if (mode == PromptMode.EXPLAIN || mode == PromptMode.SOLVE) {
         ProblemPromptFormatter.format(
             problem = problem,
             customTestSuite = customTestSuite,
@@ -1702,12 +1733,42 @@ private fun buildAiProblemContext(
 }
 
 private fun buildAiComposerContext(
-    draft: ProblemComposerDraft
+    draft: ProblemComposerDraft,
+    generatorModelName: String?
 ): String {
-    return ProblemPromptFormatter.formatComposer(
+    val composerContext = ProblemPromptFormatter.formatComposer(
         draft = draft,
         effectiveStarterCode = draft.effectiveStarterCode()
     )
+    val modelLine = generatorModelName
+        ?.takeIf { it.isNotBlank() }
+        ?.let { "Current AI model: $it" }
+        ?: "Current AI model: unavailable"
+    return "$modelLine\n\n$composerContext"
+}
+
+private fun buildGeneratedProblemDraftSummary(
+    previousDraft: ProblemComposerDraft,
+    updatedDraft: ProblemComposerDraft
+): String {
+    val changedFields = buildList {
+        if (previousDraft.title != updatedDraft.title) add("Title")
+        if (previousDraft.difficulty != updatedDraft.difficulty) add("Difficulty")
+        if (previousDraft.summary != updatedDraft.summary) add("About This Problem")
+        if (previousDraft.statementMarkdown != updatedDraft.statementMarkdown) add("Statement")
+        if (previousDraft.exampleInput != updatedDraft.exampleInput) add("Example Input")
+        if (previousDraft.exampleOutput != updatedDraft.exampleOutput) add("Example Output")
+        if (previousDraft.hintsText != updatedDraft.hintsText) add("Hints")
+        if (previousDraft.starterCode != updatedDraft.starterCode) add("Starter Code")
+        if (previousDraft.submissionTestSuiteJson != updatedDraft.submissionTestSuiteJson) add("Submission Suite")
+        if (previousDraft.executionPipelineOverride != updatedDraft.executionPipelineOverride) add("Execution Pipeline")
+    }
+
+    return if (changedFields.isEmpty()) {
+        "The AI draft parsed successfully, but it did not change any composer fields."
+    } else {
+        "Updated composer fields: ${changedFields.joinToString(", ")}."
+    }
 }
 
 private fun defaultChatMessageForMode(mode: PromptMode): String {
@@ -1836,6 +1897,16 @@ private fun ColumnScope.SettingsSidebarContent(
     val runtimeState by aiRuntimeController.runtimeState.collectAsState()
     val scope = rememberCoroutineScope()
     val settingsScrollState = rememberScrollState()
+    val modelImporter = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                aiRuntimeController.importModel(uri)
+            }
+        }
+    }
     val runtimeBusy = runtimeState.phase in setOf(
         AiRuntimePhase.Importing,
         AiRuntimePhase.Downloading,
@@ -1844,9 +1915,11 @@ private fun ColumnScope.SettingsSidebarContent(
         AiRuntimePhase.Unloading
     )
     val downloadingModel = runtimeState.phase == AiRuntimePhase.Downloading
-    val hasConfiguredModel = runtimeState.modelName != null
-    val showPresetChooser = !hasConfiguredModel && !downloadingModel
-    val visiblePresets = if (showPresetChooser) AiModelPreset.entries.toList() else emptyList()
+    val hasConfiguredModel = runtimeState.currentModelPath != null
+    val installedModels = runtimeState.installedModels
+    val installedCustomModels = installedModels.filter { it.preset == null }
+    val showPresetChooser = !downloadingModel
+    val visiblePresets = if (showPresetChooser) listOf(AiModelPreset.QwenCoder15BQ4) else emptyList()
 
     Column(
         modifier = Modifier
@@ -1910,6 +1983,53 @@ private fun ColumnScope.SettingsSidebarContent(
                     trackColor = AccentBlue.copy(alpha = 0.18f)
                 )
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Bring your own model",
+                color = TextMuted,
+                style = MaterialTheme.typography.labelSmall
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            PlainActionChip(
+                label = if (hasConfiguredModel) "Import Another .gguf" else "Import .gguf",
+                accentColor = AccentBlue,
+                onClick = if (!runtimeBusy) {
+                    {
+                        modelImporter.launch(arrayOf("*/*"))
+                    }
+                } else {
+                    null
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (installedCustomModels.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Imported models",
+                    color = TextMuted,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    installedCustomModels.forEach { model ->
+                        InstalledModelCard(
+                            model = model,
+                            currentModelPath = runtimeState.currentModelPath,
+                            busy = runtimeBusy,
+                            onSelect = {
+                                scope.launch {
+                                    runCatching {
+                                        aiRuntimeController.selectStoredModel(model.path)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
             if (visiblePresets.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
@@ -1923,15 +2043,24 @@ private fun ColumnScope.SettingsSidebarContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     visiblePresets.forEach { preset ->
+                        val installedPresetModel = installedModels.firstOrNull { it.preset == preset }
                         ModelPresetCard(
                             preset = preset,
-                            selected = runtimeState.preset == preset,
+                            installedModel = installedPresetModel,
+                            currentModelPath = runtimeState.currentModelPath,
                             phase = runtimeState.phase,
                             busy = runtimeBusy,
                             onDownload = {
                                 scope.launch {
                                     runCatching {
                                         aiRuntimeController.downloadPresetModel(preset)
+                                    }
+                                }
+                            },
+                            onSelect = {
+                                scope.launch {
+                                    runCatching {
+                                        aiRuntimeController.selectStoredModel(installedPresetModel!!.path)
                                     }
                                 }
                             }
@@ -1942,7 +2071,7 @@ private fun ColumnScope.SettingsSidebarContent(
             if (hasConfiguredModel && !downloadingModel) {
                 Spacer(modifier = Modifier.height(8.dp))
                 PlainActionChip(
-                    label = "Unload Model",
+                    label = "Remove Model",
                     accentColor = AccentRed,
                     onClick = if (!runtimeBusy) {
                         {
@@ -1963,7 +2092,14 @@ private fun ColumnScope.SettingsSidebarContent(
         CardBlock(title = "Settings", modifier = Modifier.fillMaxWidth()) {
             SettingLine("Runtime", "Embedded Python")
             Spacer(modifier = Modifier.height(6.dp))
-            SettingLine("AI", if (runtimeState.phase == AiRuntimePhase.Ready) "On-device model loaded" else "On-device model idle")
+            SettingLine(
+                "AI",
+                when {
+                    runtimeState.phase == AiRuntimePhase.Ready -> "On-device model loaded"
+                    hasConfiguredModel -> "On-device model stored"
+                    else -> "On-device model idle"
+                }
+            )
             Spacer(modifier = Modifier.height(6.dp))
             SettingLine("Theme", themeMode.label)
         }
@@ -1987,11 +2123,14 @@ private fun AiRuntimePhase.displayLabel(): String {
 @Composable
 private fun ModelPresetCard(
     preset: AiModelPreset,
-    selected: Boolean,
+    installedModel: AiStoredModel?,
+    currentModelPath: String?,
     phase: AiRuntimePhase,
     busy: Boolean,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onSelect: () -> Unit
 ) {
+    val selected = installedModel?.path == currentModelPath
     Surface(
         color = if (selected) AccentBlue.copy(alpha = 0.12f) else CardBackgroundAlt,
         shape = RoundedCornerShape(14.dp),
@@ -2019,20 +2158,28 @@ private fun ModelPresetCard(
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
-                PlainActionChip(
-                    label = when {
-                        selected && phase == AiRuntimePhase.Downloading -> "Downloading"
-                        selected && phase == AiRuntimePhase.Loading -> "Loading"
-                        selected && phase == AiRuntimePhase.Ready -> "Current"
-                        else -> "Download"
-                    },
-                    accentColor = when {
-                        selected && phase == AiRuntimePhase.Ready -> AccentGreen
-                        selected -> AccentAmber
-                        else -> AccentBlue
-                    },
-                    onClick = if (!busy && !(selected && phase == AiRuntimePhase.Ready)) onDownload else null
-                )
+                if (installedModel == null) {
+                    PlainActionChip(
+                        label = if (phase == AiRuntimePhase.Downloading) "Downloading" else "Download",
+                        accentColor = AccentBlue,
+                        onClick = if (!busy && phase != AiRuntimePhase.Downloading) onDownload else null
+                    )
+                } else {
+                    PlainActionChip(
+                        label = when {
+                            selected && phase == AiRuntimePhase.Loading -> "Loading"
+                            selected && phase == AiRuntimePhase.Ready -> "Current"
+                            selected -> "Selected"
+                            else -> "Switch"
+                        },
+                        accentColor = when {
+                            selected && phase == AiRuntimePhase.Ready -> AccentGreen
+                            selected -> AccentAmber
+                            else -> AccentBlue
+                        },
+                        onClick = if (!busy && !selected) onSelect else null
+                    )
+                }
             }
             Text(
                 text = preset.label,
@@ -2043,6 +2190,46 @@ private fun ModelPresetCard(
                 text = preset.description,
                 color = TextMuted,
                 style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun InstalledModelCard(
+    model: AiStoredModel,
+    currentModelPath: String?,
+    busy: Boolean,
+    onSelect: () -> Unit
+) {
+    val selected = model.path == currentModelPath
+    Surface(
+        color = if (selected) AccentBlue.copy(alpha = 0.12f) else CardBackgroundAlt,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, if (selected) AccentBlue.copy(alpha = 0.42f) else CardBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = model.name,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = "Imported .gguf",
+                    color = TextMuted,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+            PlainActionChip(
+                label = if (selected) "Current" else "Switch",
+                accentColor = if (selected) AccentGreen else AccentBlue,
+                onClick = if (!busy && !selected) onSelect else null
             )
         }
     }

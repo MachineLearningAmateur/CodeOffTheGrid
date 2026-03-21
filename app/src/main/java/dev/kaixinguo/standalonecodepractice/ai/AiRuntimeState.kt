@@ -15,7 +15,9 @@ internal enum class AiRuntimePhase {
 internal data class AiRuntimeState(
     val phase: AiRuntimePhase = AiRuntimePhase.Unconfigured,
     val preset: AiModelPreset? = null,
+    val currentModelPath: String? = null,
     val modelName: String? = null,
+    val installedModels: List<AiStoredModel> = emptyList(),
     val detail: String? = null,
     val progress: Float? = null
 )

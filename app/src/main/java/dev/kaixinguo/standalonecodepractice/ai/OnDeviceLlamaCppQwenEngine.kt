@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.UnknownHostException
@@ -47,7 +49,7 @@ internal class OnDeviceLlamaCppQwenEngine(
     private var modelLoaded = false
 
     init {
-        if (_runtimeState.value.phase == AiRuntimePhase.Configured) {
+        if (_runtimeState.value.currentModelPath != null) {
             runtimeScope.launch {
                 runCatching {
                     operationMutex.withLock {
@@ -62,12 +64,14 @@ internal class OnDeviceLlamaCppQwenEngine(
         require(prompt.isNotBlank()) { "AI prompt cannot be empty." }
         ensureModelLoadedLocked()
 
-        val modelName = currentConfiguredModelName()
-        val preset = currentConfiguredModelPreset()
+        val currentModel = currentConfiguredModel()
+        val installedModels = installedModels()
         _runtimeState.value = AiRuntimeState(
             phase = AiRuntimePhase.Generating,
-            preset = preset,
-            modelName = modelName,
+            preset = currentModel?.preset,
+            currentModelPath = currentModel?.path,
+            modelName = currentModel?.name,
+            installedModels = installedModels,
             detail = "Generating response on-device."
         )
 
@@ -85,13 +89,13 @@ internal class OnDeviceLlamaCppQwenEngine(
 
             val content = response.toString().trim()
             check(content.isNotBlank()) { "The on-device model returned an empty response." }
-            _runtimeState.value = readyState(modelName = modelName, preset = preset)
+            _runtimeState.value = readyState(currentModel = currentModel, installedModels = installedModels)
             content
         } catch (throwable: Throwable) {
             modelLoaded = false
             _runtimeState.value = errorState(
-                modelName = modelName,
-                preset = preset,
+                currentModel = currentModel,
+                installedModels = installedModels,
                 detail = throwable.message ?: "On-device generation failed."
             )
             throw throwable
@@ -123,29 +127,25 @@ internal class OnDeviceLlamaCppQwenEngine(
             val copiedModel = withContext(ioDispatcher) {
                 copyModelToAppStorage(uri = uri, displayName = displayName)
             }
-            val previousModelPath = currentConfiguredModelPath()
-
             unloadIfNeeded()
-            persistConfiguredModel(
+            val importedModel = AiStoredModel(
                 path = copiedModel.absolutePath,
                 name = copiedModel.name,
                 preset = null
             )
-            deleteManagedModelIfReplaced(
-                previousModelPath = previousModelPath,
-                newModelPath = copiedModel.absolutePath
-            )
+            val updatedModels = upsertInstalledModel(importedModel)
+            persistConfiguredModel(importedModel)
             _runtimeState.value = configuredState(
-                modelName = copiedModel.name,
-                preset = null,
+                currentModel = importedModel,
+                installedModels = updatedModels,
                 detail = "Model imported. Loading into memory."
             )
             loadConfiguredModelLocked()
         } catch (throwable: Throwable) {
             modelLoaded = false
             _runtimeState.value = errorState(
-                modelName = displayName,
-                preset = null,
+                currentModel = AiStoredModel(path = "", name = displayName, preset = null),
+                installedModels = installedModels(),
                 detail = throwable.message ?: "Model import failed."
             )
             throw throwable
@@ -165,21 +165,17 @@ internal class OnDeviceLlamaCppQwenEngine(
             val downloadedModel = withContext(ioDispatcher) {
                 downloadPresetIntoAppStorage(preset)
             }
-            val previousModelPath = currentConfiguredModelPath()
-
             unloadIfNeeded()
-            persistConfiguredModel(
+            val storedModel = AiStoredModel(
                 path = downloadedModel.absolutePath,
                 name = downloadedModel.name,
                 preset = preset
             )
-            deleteManagedModelIfReplaced(
-                previousModelPath = previousModelPath,
-                newModelPath = downloadedModel.absolutePath
-            )
+            val updatedModels = upsertInstalledModel(storedModel)
+            persistConfiguredModel(storedModel)
             _runtimeState.value = configuredState(
-                modelName = downloadedModel.name,
-                preset = preset,
+                currentModel = storedModel,
+                installedModels = updatedModels,
                 detail = "${preset.shortLabel} downloaded. Loading into memory."
             )
             try {
@@ -187,8 +183,8 @@ internal class OnDeviceLlamaCppQwenEngine(
             } catch (throwable: Throwable) {
                 modelLoaded = false
                 _runtimeState.value = errorState(
-                    modelName = downloadedModel.name,
-                    preset = preset,
+                    currentModel = storedModel,
+                    installedModels = updatedModels,
                     detail = resolvePostDownloadLoadFailureDetail(
                         throwable = throwable,
                         supportedAbis = Build.SUPPORTED_ABIS.toList(),
@@ -204,7 +200,7 @@ internal class OnDeviceLlamaCppQwenEngine(
             }
             modelLoaded = false
             _runtimeState.value = unconfiguredState(
-                detail = "${resolveDownloadFailureDetail(throwable)} Try again to select a model."
+                detail = buildDownloadFailureRetryDetail(throwable)
             )
             throw throwable
         }
@@ -214,39 +210,75 @@ internal class OnDeviceLlamaCppQwenEngine(
         loadConfiguredModelLocked()
     }
 
+    override suspend fun selectStoredModel(path: String) = operationMutex.withLock {
+        val models = installedModels()
+        val selectedModel = models.firstOrNull { it.path == path }
+            ?: throw IllegalArgumentException("Selected model is no longer available.")
+
+        if (currentConfiguredModelPath() != selectedModel.path) {
+            unloadIfNeeded()
+            persistConfiguredModel(selectedModel)
+        }
+        _runtimeState.value = configuredState(
+            currentModel = selectedModel,
+            installedModels = models,
+            detail = "${selectedModel.name} selected. Loading into memory."
+        )
+        loadConfiguredModelLocked()
+    }
+
     override suspend fun unloadModel() = operationMutex.withLock {
         unloadIfNeeded()
-        val modelName = currentConfiguredModelName()
-        val preset = currentConfiguredModelPreset()
-        _runtimeState.value = if (modelName == null) {
-            unconfiguredState()
+        val currentModel = currentConfiguredModel()
+        val models = installedModels()
+        _runtimeState.value = if (currentModel == null) {
+            unconfiguredState(installedModels = models)
         } else {
-            configuredState(modelName = modelName, preset = preset)
+            configuredState(currentModel = currentModel, installedModels = models)
         }
     }
 
     override suspend fun removeConfiguredModel() = operationMutex.withLock {
-        val existingModelPath = currentConfiguredModelPath()
-        val existingPreset = currentConfiguredModelPreset()
+        val existingModel = currentConfiguredModel()
+        val modelsBeforeRemoval = installedModels()
         unloadIfNeeded()
-        clearConfiguredModel()
+        val remainingModels = modelsBeforeRemoval.filterNot { it.path == existingModel?.path }
+        persistInstalledModels(remainingModels)
 
-        existingModelPath?.let { modelPath ->
+        existingModel?.path?.let { modelPath ->
             val modelFile = File(modelPath)
             if (modelFile.exists() && modelFile.parentFile == File(appContext.filesDir, MODEL_DIRECTORY_NAME)) {
                 modelFile.delete()
             }
         }
 
-        _runtimeState.value = AiRuntimeState(
-            phase = AiRuntimePhase.Unconfigured,
-            preset = null,
-            detail = if (existingPreset != null) {
-                "${existingPreset.shortLabel} removed from the device."
-            } else {
-                "Model removed from the device."
-            }
-        )
+        val replacementModel = remainingModels.firstOrNull()
+        if (replacementModel == null) {
+            clearConfiguredModel()
+        } else {
+            persistConfiguredModel(replacementModel)
+        }
+
+        _runtimeState.value = if (replacementModel == null) {
+            unconfiguredState(
+                installedModels = emptyList(),
+                detail = if (existingModel?.preset != null) {
+                    "${existingModel.preset.shortLabel} removed from the device."
+                } else {
+                    "Custom model removed from the device."
+                }
+            )
+        } else {
+            configuredState(
+                currentModel = replacementModel,
+                installedModels = remainingModels,
+                detail = if (existingModel?.preset != null) {
+                    "${existingModel.preset.shortLabel} removed. ${replacementModel.name} is stored on-device."
+                } else {
+                    "Custom model removed. ${replacementModel.name} is stored on-device."
+                }
+            )
+        }
     }
 
     override fun destroy() {
@@ -260,20 +292,23 @@ internal class OnDeviceLlamaCppQwenEngine(
     }
 
     private suspend fun loadConfiguredModelLocked() {
+        val installedModels = installedModels()
+        val currentModel = currentConfiguredModel()
+            ?: throw IllegalStateException("Import or download a model from Settings first.")
         val modelFile = resolveConfiguredModelFile()
-            ?: throw IllegalStateException("Download a model from Settings first.")
-        val modelName = modelFile.name
-        val preset = currentConfiguredModelPreset()
+            ?: throw IllegalStateException("Import or download a model from Settings first.")
         if (modelLoaded) {
-            _runtimeState.value = readyState(modelName = modelName, preset = preset)
+            _runtimeState.value = readyState(currentModel = currentModel, installedModels = installedModels)
             return
         }
 
         _runtimeState.value = AiRuntimeState(
             phase = AiRuntimePhase.Loading,
-            preset = preset,
-            modelName = modelName,
-            detail = "Loading $modelName into on-device memory."
+            preset = currentModel.preset,
+            currentModelPath = currentModel.path,
+            modelName = currentModel.name,
+            installedModels = installedModels,
+            detail = "Loading ${currentModel.name} into on-device memory."
         )
 
         try {
@@ -290,12 +325,12 @@ internal class OnDeviceLlamaCppQwenEngine(
             }
             engine.loadModel(modelFile.absolutePath)
             modelLoaded = true
-            _runtimeState.value = readyState(modelName = modelName, preset = preset)
+            _runtimeState.value = readyState(currentModel = currentModel, installedModels = installedModels)
         } catch (throwable: Throwable) {
             modelLoaded = false
             _runtimeState.value = errorState(
-                modelName = modelName,
-                preset = preset,
+                currentModel = currentModel,
+                installedModels = installedModels,
                 detail = resolveStoredModelLoadFailureDetail(
                     throwable = throwable,
                     supportedAbis = Build.SUPPORTED_ABIS.toList(),
@@ -319,10 +354,15 @@ internal class OnDeviceLlamaCppQwenEngine(
             return
         }
 
+        val currentModel = currentConfiguredModel()
+        val installedModels = installedModels()
+
         _runtimeState.value = AiRuntimeState(
             phase = AiRuntimePhase.Unloading,
-            preset = currentConfiguredModelPreset(),
-            modelName = currentConfiguredModelName(),
+            preset = currentModel?.preset,
+            currentModelPath = currentModel?.path,
+            modelName = currentModel?.name,
+            installedModels = installedModels,
             detail = "Unloading model from memory."
         )
         engine.cleanUp()
@@ -353,78 +393,84 @@ internal class OnDeviceLlamaCppQwenEngine(
     }
 
     private fun resolveConfiguredModelFile(): File? {
-        val modelPath = currentConfiguredModelPath() ?: return null
+        val modelPath = reconcileStoredModels().second?.path ?: return null
         val modelFile = File(modelPath)
         if (!modelFile.exists() || !modelFile.isFile) {
-            clearConfiguredModel()
             return null
         }
         return modelFile
     }
 
     private fun initialRuntimeState(): AiRuntimeState {
-        val modelFile = resolveConfiguredModelFile()
-        val preset = currentConfiguredModelPreset()
-        return if (modelFile == null) {
-            unconfiguredState()
+        val (installedModels, currentModel) = reconcileStoredModels()
+        return if (currentModel == null) {
+            unconfiguredState(installedModels = installedModels)
         } else {
             configuredState(
-                modelName = modelFile.name,
-                preset = preset,
+                currentModel = currentModel,
+                installedModels = installedModels,
                 detail = "Model is stored on-device and ready to load."
             )
         }
     }
 
-    private fun readyState(modelName: String?, preset: AiModelPreset?): AiRuntimeState {
+    private fun readyState(currentModel: AiStoredModel?, installedModels: List<AiStoredModel>): AiRuntimeState {
         return AiRuntimeState(
             phase = AiRuntimePhase.Ready,
-            preset = preset,
-            modelName = modelName,
+            preset = currentModel?.preset,
+            currentModelPath = currentModel?.path,
+            modelName = currentModel?.name,
+            installedModels = installedModels,
             detail = "Model is loaded and ready."
         )
     }
 
     private fun configuredState(
-        modelName: String?,
-        preset: AiModelPreset?,
+        currentModel: AiStoredModel?,
+        installedModels: List<AiStoredModel>,
         detail: String = "Model is stored on-device."
     ): AiRuntimeState {
         return AiRuntimeState(
             phase = AiRuntimePhase.Configured,
-            preset = preset,
-            modelName = modelName,
+            preset = currentModel?.preset,
+            currentModelPath = currentModel?.path,
+            modelName = currentModel?.name,
+            installedModels = installedModels,
             detail = detail
         )
     }
 
     private fun errorState(
-        modelName: String?,
-        preset: AiModelPreset?,
+        currentModel: AiStoredModel?,
+        installedModels: List<AiStoredModel>,
         detail: String
     ): AiRuntimeState {
         return AiRuntimeState(
             phase = AiRuntimePhase.Error,
-            preset = preset,
-            modelName = modelName,
+            preset = currentModel?.preset,
+            currentModelPath = currentModel?.path,
+            modelName = currentModel?.name,
+            installedModels = installedModels,
             detail = detail
         )
     }
 
     private fun unconfiguredState(
-        detail: String = "Download a model from Settings to enable Ask AI."
+        installedModels: List<AiStoredModel> = installedModels(),
+        detail: String = "Import or download a model from Settings to enable Ask AI."
     ): AiRuntimeState {
         return AiRuntimeState(
             phase = AiRuntimePhase.Unconfigured,
+            installedModels = installedModels,
             detail = detail
         )
     }
 
-    private fun persistConfiguredModel(path: String, name: String, preset: AiModelPreset?) {
+    private fun persistConfiguredModel(model: AiStoredModel) {
         sharedPreferences.edit()
-            .putString(KEY_MODEL_PATH, path)
-            .putString(KEY_MODEL_NAME, name)
-            .putString(KEY_MODEL_PRESET, preset?.storageKey)
+            .putString(KEY_MODEL_PATH, model.path)
+            .putString(KEY_MODEL_NAME, model.name)
+            .putString(KEY_MODEL_PRESET, model.preset?.storageKey)
             .apply()
     }
 
@@ -440,12 +486,109 @@ internal class OnDeviceLlamaCppQwenEngine(
         return sharedPreferences.getString(KEY_MODEL_PATH, null)
     }
 
-    private fun currentConfiguredModelName(): String? {
-        return sharedPreferences.getString(KEY_MODEL_NAME, null)
+    private fun currentConfiguredModel(): AiStoredModel? {
+        val (installedModels, currentModel) = reconcileStoredModels()
+        if (currentModel != null) {
+            return currentModel
+        }
+        val legacyPath = currentConfiguredModelPath() ?: return null
+        val legacyName = sharedPreferences.getString(KEY_MODEL_NAME, null) ?: File(legacyPath).name
+        val legacyPreset = AiModelPreset.fromStorageKey(sharedPreferences.getString(KEY_MODEL_PRESET, null))
+        return installedModels.firstOrNull { it.path == legacyPath }
+            ?: AiStoredModel(path = legacyPath, name = legacyName, preset = legacyPreset)
     }
 
-    private fun currentConfiguredModelPreset(): AiModelPreset? {
-        return AiModelPreset.fromStorageKey(sharedPreferences.getString(KEY_MODEL_PRESET, null))
+    private fun installedModels(): List<AiStoredModel> {
+        val migratedModels = readInstalledModels().ifEmpty {
+            val legacyPath = currentConfiguredModelPath()
+            if (legacyPath == null) {
+                emptyList()
+            } else {
+                listOf(
+                    AiStoredModel(
+                        path = legacyPath,
+                        name = sharedPreferences.getString(KEY_MODEL_NAME, null) ?: File(legacyPath).name,
+                        preset = AiModelPreset.fromStorageKey(sharedPreferences.getString(KEY_MODEL_PRESET, null))
+                    )
+                ).also(::persistInstalledModels)
+            }
+        }
+        return reconcileStoredModelOrder(migratedModels)
+    }
+
+    private fun readInstalledModels(): List<AiStoredModel> {
+        val raw = sharedPreferences.getString(KEY_INSTALLED_MODELS, null)
+            ?.takeIf { it.isNotBlank() }
+            ?: return emptyList()
+        val array = runCatching { JSONArray(raw) }.getOrNull() ?: return emptyList()
+        return buildList {
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val path = item.optString("path").trim()
+                if (path.isBlank()) continue
+                val name = item.optString("name").trim().ifBlank { File(path).name }
+                add(
+                    AiStoredModel(
+                        path = path,
+                        name = name,
+                        preset = AiModelPreset.fromStorageKey(item.optString("preset").trim().ifBlank { null })
+                    )
+                )
+            }
+        }
+    }
+
+    private fun persistInstalledModels(models: List<AiStoredModel>) {
+        sharedPreferences.edit()
+            .putString(
+                KEY_INSTALLED_MODELS,
+                JSONArray().apply {
+                    models.forEach { model ->
+                        put(
+                            JSONObject()
+                                .put("path", model.path)
+                                .put("name", model.name)
+                                .put("preset", model.preset?.storageKey ?: "")
+                        )
+                    }
+                }.toString()
+            )
+            .apply()
+    }
+
+    private fun upsertInstalledModel(model: AiStoredModel): List<AiStoredModel> {
+        val updatedModels = reconcileStoredModelOrder(
+            listOf(model) + installedModels().filterNot { existing -> existing.path == model.path }
+        )
+        persistInstalledModels(updatedModels)
+        return updatedModels
+    }
+
+    private fun reconcileStoredModels(): Pair<List<AiStoredModel>, AiStoredModel?> {
+        val existingModels = reconcileStoredModelOrder(
+            installedModels().filter { storedModel ->
+                val file = File(storedModel.path)
+                file.exists() && file.isFile
+            }
+        )
+        if (existingModels != readInstalledModels()) {
+            persistInstalledModels(existingModels)
+        }
+
+        val selectedPath = currentConfiguredModelPath()
+        val currentModel = existingModels.firstOrNull { it.path == selectedPath } ?: existingModels.firstOrNull()
+        if (currentModel == null) {
+            clearConfiguredModel()
+        } else if (currentModel.path != selectedPath) {
+            persistConfiguredModel(currentModel)
+        }
+        return existingModels to currentModel
+    }
+
+    private fun reconcileStoredModelOrder(models: List<AiStoredModel>): List<AiStoredModel> {
+        return models
+            .filter { it.path.isNotBlank() && it.name.isNotBlank() }
+            .distinctBy { it.path }
     }
 
     private fun copyModelToAppStorage(uri: Uri, displayName: String): File {
@@ -492,10 +635,13 @@ internal class OnDeviceLlamaCppQwenEngine(
 
                         output.write(buffer, 0, readCount)
                         downloadedBytes += readCount
+                        val currentModel = currentConfiguredModel()
                         _runtimeState.value = AiRuntimeState(
                             phase = AiRuntimePhase.Downloading,
                             preset = preset,
+                            currentModelPath = currentModel?.path,
                             modelName = preset.filename,
+                            installedModels = installedModels(),
                             detail = formatDownloadProgress(
                                 preset = preset,
                                 downloadedBytes = downloadedBytes,
@@ -533,17 +679,6 @@ internal class OnDeviceLlamaCppQwenEngine(
             doInput = true
             setRequestProperty("Accept", "application/octet-stream")
             setRequestProperty("User-Agent", "StandaloneCodePractice/1.0")
-        }
-    }
-
-    private fun deleteManagedModelIfReplaced(previousModelPath: String?, newModelPath: String) {
-        if (previousModelPath == null || previousModelPath == newModelPath) {
-            return
-        }
-        val previousFile = File(previousModelPath)
-        val modelDirectory = File(appContext.filesDir, MODEL_DIRECTORY_NAME)
-        if (previousFile.exists() && previousFile.parentFile == modelDirectory) {
-            previousFile.delete()
         }
     }
 
@@ -607,6 +742,7 @@ internal class OnDeviceLlamaCppQwenEngine(
         const val KEY_MODEL_PATH = "ai_model_path"
         const val KEY_MODEL_NAME = "ai_model_name"
         const val KEY_MODEL_PRESET = "ai_model_preset"
+        const val KEY_INSTALLED_MODELS = "ai_installed_models"
         const val MODEL_DIRECTORY_NAME = "ai-models"
         const val MODEL_EXTENSION = ".gguf"
         const val DEFAULT_MODEL_FILENAME = "model.gguf"
@@ -624,6 +760,10 @@ internal fun resolveDownloadFailureDetail(throwable: Throwable): String {
     }
 
     return throwable.message ?: "Model download failed."
+}
+
+internal fun buildDownloadFailureRetryDetail(throwable: Throwable): String {
+    return "${resolveDownloadFailureDetail(throwable)} Select a model to try again."
 }
 
 internal fun resolveStoredModelLoadFailureDetail(
