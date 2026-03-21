@@ -33,3 +33,7 @@ scripts/.cache/
 window_dump*.xml
 emulator-*.png
 tmp-*.png
+
+# Local planning docs and mockups
+docs/*.md
+docs/mockups/
