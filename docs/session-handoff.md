@@ -2,7 +2,7 @@
 
 ## Project
 
-- App name: `Standalone Code Practice`
+- App name: `OffTheGrid`
 - Repo: `git@github.com:MachineLearningAmateur/Standalone-Code-Practice.git`
 - Branch: `main`
 - Latest pushed feature commit before this handoff update: `3f305dd` (`Ship AI workspace and on-device runtime scaffolding`)

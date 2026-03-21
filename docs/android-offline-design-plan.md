@@ -1,4 +1,4 @@
-# StandaloneCodePractice Android Design Plan
+# OffTheGrid Android Design Plan
 
 ## Status
 - Draft v3
@@ -9,7 +9,7 @@
 
 ## 1. Product Summary
 
-StandaloneCodePractice is an offline-first Android tablet app for storing, organizing, and practicing coding problems locally. The app provides a GUI for browsing a personal problem repository, reading problem content, writing Python solutions, running local test cases through an embedded Python runtime, and tracking notes and progress without requiring internet access.
+OffTheGrid is an offline-first Android tablet app for storing, organizing, and practicing coding problems locally. The app provides a GUI for browsing a personal problem repository, reading problem content, writing Python solutions, running local test cases through an embedded Python runtime, and tracking notes and progress without requiring internet access.
 
 The first release is optimized for a Samsung Galaxy Tab S7 class device, with a tablet-first workspace and a local-native execution model.
 

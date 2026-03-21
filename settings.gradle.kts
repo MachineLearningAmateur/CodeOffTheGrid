@@ -23,6 +23,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "StandaloneCodePractice"
+rootProject.name = "OffTheGrid"
 include(":app")
 include(":llamaandroid")

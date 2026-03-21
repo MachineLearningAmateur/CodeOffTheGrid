@@ -7,7 +7,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 @Immutable
-internal data class StandaloneColors(
+internal data class OffTheGridColors(
     val appBackground: Color,
     val sidebarBackground: Color,
     val paneBackground: Color,
@@ -22,7 +22,7 @@ internal data class StandaloneColors(
     val textMuted: Color
 )
 
-internal val DarkStandaloneColors = StandaloneColors(
+internal val DarkOffTheGridColors = OffTheGridColors(
     appBackground = Color(0xFF161A24),
     sidebarBackground = Color(0xFF1A1F2B),
     paneBackground = Color(0xFF1D2330),
@@ -37,7 +37,7 @@ internal val DarkStandaloneColors = StandaloneColors(
     textMuted = Color(0xFF8892A3)
 )
 
-internal val LightStandaloneColors = StandaloneColors(
+internal val LightOffTheGridColors = OffTheGridColors(
     appBackground = Color(0xFFF6F0E8),
     sidebarBackground = Color(0xFFEAE0D2),
     paneBackground = Color(0xFFFBF7F1),
@@ -52,7 +52,7 @@ internal val LightStandaloneColors = StandaloneColors(
     textMuted = Color(0xFF7D8694)
 )
 
-internal val LocalStandaloneColors = staticCompositionLocalOf { DarkStandaloneColors }
+internal val LocalOffTheGridColors = staticCompositionLocalOf { DarkOffTheGridColors }
 
 val AccentBlue = Color(0xFF79A8FF)
 val AccentBlueSoft = Color(0xFF5A6F96)
@@ -63,60 +63,60 @@ val AccentAmber = Color(0xFFE6B25A)
 val AppBackground: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.appBackground
+    get() = LocalOffTheGridColors.current.appBackground
 
 val SidebarBackground: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.sidebarBackground
+    get() = LocalOffTheGridColors.current.sidebarBackground
 
 val PaneBackground: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.paneBackground
+    get() = LocalOffTheGridColors.current.paneBackground
 
 val CardBackground: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.cardBackground
+    get() = LocalOffTheGridColors.current.cardBackground
 
 val CardBackgroundAlt: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.cardBackgroundAlt
+    get() = LocalOffTheGridColors.current.cardBackgroundAlt
 
 val CardBorder: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.cardBorder
+    get() = LocalOffTheGridColors.current.cardBorder
 
 val DividerColor: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.dividerColor
+    get() = LocalOffTheGridColors.current.dividerColor
 
 val InsetSurface: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.insetSurface
+    get() = LocalOffTheGridColors.current.insetSurface
 
 val MediaSurface: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.mediaSurface
+    get() = LocalOffTheGridColors.current.mediaSurface
 
 val TextPrimary: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.textPrimary
+    get() = LocalOffTheGridColors.current.textPrimary
 
 val TextSecondary: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.textSecondary
+    get() = LocalOffTheGridColors.current.textSecondary
 
 val TextMuted: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalStandaloneColors.current.textMuted
+    get() = LocalOffTheGridColors.current.textMuted
 

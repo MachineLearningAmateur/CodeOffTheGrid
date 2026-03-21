@@ -1,6 +1,6 @@
-# Standalone Code Practice
+# OffTheGrid
 
-Standalone Code Practice is an Android app for practicing interview-style coding problems in one place without depending on a cloud AI service.
+OffTheGrid is an Android app for practicing interview-style coding problems in one place without depending on a cloud AI service.
 
 It combines a local problem workspace, Python execution, a built-in problem catalog, and an on-device GGUF-backed AI assistant so users can read problems, write code, test ideas, and get help directly on the device.
 
