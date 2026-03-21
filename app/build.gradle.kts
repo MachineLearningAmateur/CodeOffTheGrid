@@ -12,6 +12,9 @@ val keystorePropertiesFile = rootProject.file("keystore.properties")
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use(keystoreProperties::load)
 }
+val appVersionCode = 2
+val appVersionName = "1.0.0"
+val releaseArtifactBaseName = "OffTheCodeGrid"
 
 android {
     namespace = "dev.kaixinguo.standalonecodepractice"
@@ -25,8 +28,8 @@ android {
         applicationId = "dev.kaixinguo.standalonecodepractice"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -68,6 +71,7 @@ android {
     buildFeatures {
         compose = true
     }
+
 }
 
 chaquopy {
@@ -98,5 +102,16 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    doLast {
+        val releaseOutputDir = layout.buildDirectory.dir("outputs/apk/release").get().asFile
+        copy {
+            from(releaseOutputDir.resolve("app-release.apk"))
+            into(releaseOutputDir)
+            rename { "$releaseArtifactBaseName-v$appVersionName.apk" }
+        }
+    }
 }
 
