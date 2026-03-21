@@ -11,28 +11,27 @@ internal object ProblemTestSuiteJsonCodec {
         return encodeToJson(testSuite).toString()
     }
 
-    fun encodeToJson(testSuite: ProblemTestSuite): JSONObject {
+    fun encodeToJson(testSuite: ProblemTestSuite, includeIds: Boolean = true): JSONObject {
         val cases = JSONArray()
         testSuite.cases.forEach { testCase ->
-            cases.put(
-                JSONObject()
-                    .put("id", testCase.id)
-                    .put("label", testCase.label)
-                    .put("stdin", testCase.stdin)
-                    .put("expectedOutput", testCase.expectedOutput)
-                    .put("enabled", testCase.enabled)
-                    .put("comparisonMode", testCase.comparisonMode.storageValue)
-                    .put(
-                        "acceptableOutputs",
-                        JSONArray().apply {
-                            testCase.acceptableOutputs.forEach { put(it) }
-                        }
-                    )
-            )
+            val caseJson = JSONObject()
+                .put("label", testCase.label)
+                .put("stdin", testCase.stdin)
+                .put("expectedOutput", testCase.expectedOutput)
+                .put("enabled", testCase.enabled)
+                .put("comparisonMode", testCase.comparisonMode.storageValue)
+                .put(
+                    "acceptableOutputs",
+                    JSONArray().apply {
+                        testCase.acceptableOutputs.forEach { put(it) }
+                    }
+                )
+            if (includeIds) {
+                caseJson.put("id", testCase.id)
+            }
+            cases.put(caseJson)
         }
-        return JSONObject()
-            .put("draft", testSuite.draft)
-            .put("cases", cases)
+        return JSONObject().put("cases", cases)
     }
 
     fun decodeFromString(serialized: String): ProblemTestSuite? {
@@ -52,7 +51,7 @@ internal object ProblemTestSuiteJsonCodec {
                     val caseJson = casesJson.optJSONObject(index) ?: continue
                     add(
                         ProblemTestCase(
-                            id = caseJson.optString("id").ifBlank { "case-$index" },
+                            id = caseJson.optString("id").ifBlank { java.util.UUID.randomUUID().toString() },
                             label = caseJson.optString("label").ifBlank { "Case ${index + 1}" },
                             stdin = caseJson.optString("stdin"),
                             expectedOutput = caseJson.optString("expectedOutput"),

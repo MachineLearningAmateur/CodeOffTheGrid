@@ -139,7 +139,7 @@ internal class ProblemCatalogRepository(
             customTests = customTests,
             hintsJson = encodeHints(hints),
             submissionTestSuiteJson = ProblemTestSuiteJsonCodec.encodeToString(
-                submissionTestSuite.takeIf { it.cases.isNotEmpty() || it.draft.isNotBlank() }
+                submissionTestSuite.takeIf { it.cases.isNotEmpty() }
                     ?: ProblemSubmissionSuiteFactory.build(this)
             ),
             executionPipeline = executionPipeline.storageValue,

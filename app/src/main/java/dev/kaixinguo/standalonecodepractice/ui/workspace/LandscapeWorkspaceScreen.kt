@@ -5,6 +5,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -21,6 +24,8 @@ import dev.kaixinguo.standalonecodepractice.ui.theme.AppBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.AppThemeMode
 import dev.kaixinguo.standalonecodepractice.ui.theme.SidebarBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.StandaloneCodePracticeTheme
+import dev.kaixinguo.standalonecodepractice.ui.theme.TextPrimary
+import dev.kaixinguo.standalonecodepractice.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 
 @Composable
@@ -51,6 +56,9 @@ internal fun LandscapeWorkspaceScreen(
     var currentCustomExecutionResult by remember { mutableStateOf(defaultExecutionResult(ExecutionTarget.Custom)) }
     var currentSubmissionExecutionResult by remember { mutableStateOf(defaultExecutionResult(ExecutionTarget.LocalSubmission)) }
     var selectedSupportTab by remember { mutableStateOf(SupportTab.Problem) }
+    var composerSession by remember { mutableStateOf<ProblemComposerSession?>(null) }
+    var showDiscardComposerDialog by remember { mutableStateOf(false) }
+    var catalogVersion by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val sidebarWidth by animateDpAsState(
         targetValue = if (sidebarCollapsed) 84.dp else 288.dp,
@@ -58,7 +66,10 @@ internal fun LandscapeWorkspaceScreen(
         label = "sidebarWidth"
     )
 
-    val allSets = folders.flatMap { it.sets }
+    val catalogSnapshotVersion = catalogVersion
+    val allSets = catalogSnapshotVersion.let {
+        folders.flatMap { folder -> folder.sets.toList() }
+    }
     val selectedProblemSet = allSets
         .firstOrNull { it.id == selectedProblemSetId }
         ?: allSets.firstOrNull()
@@ -66,6 +77,9 @@ internal fun LandscapeWorkspaceScreen(
         ?.firstOrNull { it.id == selectedProblemId }
         ?: selectedProblemSet?.problems?.firstOrNull()
         ?: allSets.flatMap { it.problems }.firstOrNull()
+    val composerPreviewProblem = composerSession?.draft?.toPreviewProblem()
+    val effectiveSidebarMode = if (composerSession != null) SidebarMode.AskAi else sidebarMode
+    val composerDestinations = catalogSnapshotVersion.let { buildProblemComposerDestinations(folders) }
 
     LaunchedEffect(Unit) {
         val seedFolders = seedCatalogProvider()
@@ -133,8 +147,8 @@ internal fun LandscapeWorkspaceScreen(
         }
     }
 
-    LaunchedEffect(sidebarMode) {
-        if (sidebarMode != SidebarMode.AskAi) {
+    LaunchedEffect(effectiveSidebarMode) {
+        if (effectiveSidebarMode != SidebarMode.AskAi) {
             askAiFullscreen = false
         }
     }
@@ -150,6 +164,7 @@ internal fun LandscapeWorkspaceScreen(
             .padding(20.dp)
     ) {
         fun persistCatalogSnapshot() {
+            catalogVersion += 1
             val snapshot = folders.deepCopy()
             scope.launch {
                 problemCatalogRepository.persistCatalog(snapshot)
@@ -170,6 +185,50 @@ internal fun LandscapeWorkspaceScreen(
                     sketches = sketches
                 )
             }
+        }
+
+        fun openProblemComposer() {
+            askAiFullscreen = false
+            composerSession = ProblemComposerSession()
+        }
+
+        fun dismissProblemComposer() {
+            val session = composerSession ?: return
+            if (session.isDirty()) {
+                showDiscardComposerDialog = true
+            } else {
+                composerSession = null
+            }
+        }
+
+        fun saveComposedProblem() {
+            val session = composerSession ?: return
+            val validationError = session.draft.validationError(
+                availableSetIds = composerDestinations.map { it.setId }.toSet()
+            )
+            if (validationError != null) {
+                composerSession = session.copy(errorMessage = validationError)
+                return
+            }
+
+            val targetSet = folders
+                .flatMap { it.sets }
+                .firstOrNull { it.id == session.draft.destinationSetId }
+                ?: run {
+                    composerSession = session.copy(
+                        errorMessage = "Choose a valid destination set before saving."
+                    )
+                    return
+                }
+
+            val savedProblem = session.draft.toSavedProblem()
+            targetSet.problems.add(savedProblem)
+            selectedProblemSetId = targetSet.id
+            selectedProblemId = savedProblem.id
+            selectedSupportTab = SupportTab.Problem
+            updateActiveProblemSelection(folders, selectedProblemSetId, selectedProblemId)
+            persistCatalogSnapshot()
+            composerSession = null
         }
 
         Row(
@@ -315,8 +374,14 @@ internal fun LandscapeWorkspaceScreen(
                     }
                     persistCatalogSnapshot()
                 },
-                selectedMode = sidebarMode,
-                onModeSelected = { sidebarMode = it },
+                onOpenProblemComposer = { openProblemComposer() },
+                problemComposerActive = composerSession != null,
+                selectedMode = effectiveSidebarMode,
+                onModeSelected = { mode ->
+                    if (composerSession == null) {
+                        sidebarMode = mode
+                    }
+                },
                 collapsed = sidebarCollapsed,
                 onToggleCollapsed = { sidebarCollapsed = !sidebarCollapsed },
                 protectedFolderIds = protectedFolderIds,
@@ -330,6 +395,7 @@ internal fun LandscapeWorkspaceScreen(
                     }
                 },
                 selectedProblem = selectedProblem,
+                composerSession = composerSession,
                 currentDraftCode = currentDraftCode,
                 currentCustomTestSuite = currentCustomTestSuite,
                 customExecutionResult = currentCustomExecutionResult,
@@ -355,7 +421,7 @@ internal fun LandscapeWorkspaceScreen(
                 onThemeModeChange = onThemeModeChange,
                 modifier = Modifier
                     .then(
-                        if (askAiFullscreen && sidebarMode == SidebarMode.AskAi) {
+                        if (askAiFullscreen && effectiveSidebarMode == SidebarMode.AskAi) {
                             Modifier.fillMaxSize()
                         } else {
                             Modifier.width(sidebarWidth)
@@ -363,79 +429,135 @@ internal fun LandscapeWorkspaceScreen(
                     )
                     .fillMaxHeight()
             )
-            if (!askAiFullscreen && selectedProblem != null) {
-                WorkspacePane(
-                    problem = selectedProblem,
-                    draftCode = currentDraftCode,
-                    sketchStrokes = sketchStrokes,
-                    onDraftCodeChange = { updatedCode ->
-                        currentDraftCode = updatedCode
-                        persistWorkspaceDocument(
-                            problemId = selectedProblem.id,
-                            draftCode = updatedCode,
-                            customTestSuite = currentCustomTestSuite,
-                            sketches = sketchStrokes.toList()
-                        )
-                    },
-                    onSketchesChange = { updatedSketches ->
-                        sketchStrokes.clear()
-                        sketchStrokes.addAll(updatedSketches)
-                        persistWorkspaceDocument(
-                            problemId = selectedProblem.id,
-                            draftCode = currentDraftCode,
-                            customTestSuite = currentCustomTestSuite,
-                            sketches = updatedSketches
-                        )
-                    },
-                    inputMode = workspaceInputMode,
-                    onInputModeChange = { workspaceInputMode = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                )
-                ProblemPane(
-                    problem = selectedProblem,
-                    draftCode = currentDraftCode,
-                    selectedTab = selectedSupportTab,
-                    onSelectedTabChange = { selectedSupportTab = it },
-                    onSolvedChange = { solved ->
-                        val set = folders
-                            .flatMap { it.sets }
-                            .firstOrNull { it.id == selectedProblemSetId }
-                            ?: return@ProblemPane
-                        val updatedProblems = set.problems.map { item ->
-                            if (item.id == selectedProblem.id) {
-                                item.copy(solved = solved)
-                            } else {
-                                item
+            if (!askAiFullscreen) {
+                if (composerSession != null) {
+                    ProblemComposerPane(
+                        session = composerSession!!,
+                        destinations = composerDestinations,
+                        onSessionChange = { composerSession = it },
+                        onSave = { saveComposedProblem() },
+                        onCancel = { dismissProblemComposer() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                } else if (selectedProblem != null) {
+                    WorkspacePane(
+                        problem = selectedProblem,
+                        draftCode = currentDraftCode,
+                        sketchStrokes = sketchStrokes,
+                        onDraftCodeChange = { updatedCode ->
+                            currentDraftCode = updatedCode
+                            persistWorkspaceDocument(
+                                problemId = selectedProblem.id,
+                                draftCode = updatedCode,
+                                customTestSuite = currentCustomTestSuite,
+                                sketches = sketchStrokes.toList()
+                            )
+                        },
+                        onSketchesChange = { updatedSketches ->
+                            sketchStrokes.clear()
+                            sketchStrokes.addAll(updatedSketches)
+                            persistWorkspaceDocument(
+                                problemId = selectedProblem.id,
+                                draftCode = currentDraftCode,
+                                customTestSuite = currentCustomTestSuite,
+                                sketches = updatedSketches
+                            )
+                        },
+                        inputMode = workspaceInputMode,
+                        onInputModeChange = { workspaceInputMode = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+
+                val problemPaneProblem = composerPreviewProblem ?: selectedProblem
+                if (problemPaneProblem != null) {
+                    ProblemPane(
+                        problem = problemPaneProblem,
+                        draftCode = currentDraftCode,
+                        selectedTab = if (composerSession != null) SupportTab.Problem else selectedSupportTab,
+                        onSelectedTabChange = { selectedSupportTab = it },
+                        onSolvedChange = { solved ->
+                            if (composerSession != null || selectedProblem == null) return@ProblemPane
+                            val set = folders
+                                .flatMap { it.sets }
+                                .firstOrNull { it.id == selectedProblemSetId }
+                                ?: return@ProblemPane
+                            val updatedProblems = set.problems.map { item ->
+                                if (item.id == selectedProblem.id) {
+                                    item.copy(solved = solved)
+                                } else {
+                                    item
+                                }
                             }
-                        }
-                        set.problems.clear()
-                        set.problems.addAll(updatedProblems)
-                        persistCatalogSnapshot()
-                    },
-                    customTestSuite = currentCustomTestSuite,
-                    onCustomTestSuiteChange = { updatedCustomTestSuite ->
-                        currentCustomTestSuite = updatedCustomTestSuite
-                        persistWorkspaceDocument(
-                            problemId = selectedProblem.id,
-                            draftCode = currentDraftCode,
-                            customTestSuite = updatedCustomTestSuite,
-                            sketches = sketchStrokes.toList()
-                        )
-                    },
-                    onExecutionResultChange = { result ->
-                        when (result.target) {
-                            ExecutionTarget.Custom -> currentCustomExecutionResult = result
-                            ExecutionTarget.LocalSubmission -> currentSubmissionExecutionResult = result
-                        }
-                    },
-                    localPythonExecutionService = localPythonExecutionService,
-                    modifier = Modifier
-                        .width(356.dp)
-                        .fillMaxHeight()
-                )
+                            set.problems.clear()
+                            set.problems.addAll(updatedProblems)
+                            persistCatalogSnapshot()
+                        },
+                        customTestSuite = currentCustomTestSuite,
+                        onCustomTestSuiteChange = { updatedCustomTestSuite ->
+                            if (composerSession != null || selectedProblem == null) return@ProblemPane
+                            currentCustomTestSuite = updatedCustomTestSuite
+                            persistWorkspaceDocument(
+                                problemId = selectedProblem.id,
+                                draftCode = currentDraftCode,
+                                customTestSuite = updatedCustomTestSuite,
+                                sketches = sketchStrokes.toList()
+                            )
+                        },
+                        onExecutionResultChange = { result ->
+                            when (result.target) {
+                                ExecutionTarget.Custom -> currentCustomExecutionResult = result
+                                ExecutionTarget.LocalSubmission -> currentSubmissionExecutionResult = result
+                            }
+                        },
+                        localPythonExecutionService = localPythonExecutionService,
+                        previewMode = composerSession != null,
+                        previewComments = composerSession?.draft?.summary,
+                        modifier = Modifier
+                            .width(356.dp)
+                            .fillMaxHeight()
+                    )
+                }
             }
+        }
+
+        if (showDiscardComposerDialog) {
+            AlertDialog(
+                onDismissRequest = { showDiscardComposerDialog = false },
+                title = {
+                    Text(
+                        text = "Discard draft?",
+                        color = TextPrimary
+                    )
+                },
+                text = {
+                    Text(
+                        text = "This will close the problem composer and lose the unsaved draft.",
+                        color = TextSecondary
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDiscardComposerDialog = false
+                            composerSession = null
+                        }
+                    ) {
+                        Text("Discard")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showDiscardComposerDialog = false }
+                    ) {
+                        Text("Keep Editing")
+                    }
+                }
+            )
         }
     }
 }
@@ -816,6 +938,19 @@ private fun updateActiveProblemSelection(
     }
 }
 
+internal fun buildProblemComposerDestinations(
+    folders: List<ProblemFolderState>
+): List<ProblemComposerDestination> {
+    return folders.flatMap { folder ->
+        folder.sets.map { set ->
+            ProblemComposerDestination(
+                setId = set.id,
+                label = "${folder.title} / ${set.title}"
+            )
+        }
+    }
+}
+
 private fun List<ProblemFolderState>.deepCopy(): List<ProblemFolderState> {
     return map { folder ->
         ProblemFolderState(
@@ -864,6 +999,7 @@ private fun LandscapeWorkspacePreview() {
             ),
             localPythonExecutionService = LocalPythonExecutionService(androidx.compose.ui.platform.LocalContext.current),
             aiAssistant = object : AiAssistant {
+                override suspend fun createProblem(problem: String, code: String?, request: String?) = "Create problem preview"
                 override suspend fun generateHint(problem: String, code: String?, request: String?) = "Hint preview"
                 override suspend fun explainSolution(problem: String, code: String?, request: String?) = "Explain preview"
                 override suspend fun reviewCode(problem: String, code: String?, request: String?) = "Review preview"

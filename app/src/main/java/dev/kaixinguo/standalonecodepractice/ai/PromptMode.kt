@@ -5,6 +5,11 @@ internal enum class PromptMode(
     val description: String,
     val actionLabel: String
 ) {
+    CREATE_PROBLEM(
+        label = "Create Problem",
+        description = "Help draft or refine the problem composer fields from the current draft.",
+        actionLabel = "Generate Problem Draft"
+    ),
     HINT(
         label = "Hint",
         description = "Small next-step guidance without the full answer.",

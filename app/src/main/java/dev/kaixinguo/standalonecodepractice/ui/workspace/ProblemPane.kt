@@ -52,9 +52,12 @@ internal fun ProblemPane(
     onCustomTestSuiteChange: (ProblemTestSuite) -> Unit,
     onExecutionResultChange: (ProblemExecutionResult) -> Unit,
     localPythonExecutionService: LocalPythonExecutionService,
+    previewMode: Boolean = false,
+    previewComments: String? = null,
     modifier: Modifier = Modifier
 ) {
     var revealedHintCount by remember(problem.id) { mutableStateOf(0) }
+    var commentsVisible by remember(problem.id, previewComments) { mutableStateOf(false) }
     var executionResult by remember(problem.id) {
         mutableStateOf(
             ProblemExecutionResult(
@@ -68,7 +71,19 @@ internal fun ProblemPane(
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
-    val hints = remember(problem.id) { problem.hints }
+    val hints = remember(problem.id, problem.hints) { problem.hints }
+    val commentsText = remember(problem.id, previewComments, problem.summary, problem.statementMarkdown) {
+        val explicitPreviewComments = previewComments?.trim().orEmpty()
+        if (explicitPreviewComments.isNotBlank()) {
+            explicitPreviewComments
+        } else {
+            problem.summary
+                .trim()
+                .takeIf { it.isNotBlank() && it != deriveSummaryFallback(problem.statementMarkdown, problem.title) }
+                .orEmpty()
+        }
+    }
+    val hasComments = !previewMode && commentsText.isNotBlank()
     val normalizedExampleInput = remember(
         problem.id,
         problem.exampleInput,
@@ -81,10 +96,15 @@ internal fun ProblemPane(
         problem.id,
         problem.statementMarkdown,
         problem.summary,
+        previewMode,
         normalizedExampleInput,
         problem.exampleOutput
     ) {
-        val baseStatement = problem.statementMarkdown.ifBlank { problem.summary }
+        val baseStatement = if (previewMode) {
+            problem.statementMarkdown
+        } else {
+            problem.statementMarkdown.ifBlank { problem.summary }
+        }
         if (
             Regex("""(?im)^\*\*Example(?:\s+\d+)?:\*\*$""").containsMatchIn(baseStatement) ||
             (normalizedExampleInput.isBlank() && problem.exampleOutput.isBlank())
@@ -131,17 +151,17 @@ internal fun ProblemPane(
         ProblemInputNormalizer.normalizeSubmissionTestSuite(
             problem = problem,
             testSuite = problem.submissionTestSuite.takeIf {
-                it.cases.isNotEmpty() || it.draft.isNotBlank()
+                it.cases.isNotEmpty()
             } ?: ProblemSubmissionSuiteFactory.build(problem)
         )
     }
     val enabledSubmissionCases = submissionTestSuite.cases.count { it.enabled }
     val hasStructuredCases = customTestSuite.cases.isNotEmpty()
     val hasRunnableExample = problem.exampleInput.isNotBlank() || problem.exampleOutput.isNotBlank()
-    val canToggleSolved = problem.solved || (
+    val canToggleSolved = !previewMode && (problem.solved || (
         executionResult.target == ExecutionTarget.LocalSubmission &&
             executionResult.status == ExecutionStatus.Passed
-        )
+        ))
     val copyResultBlock: (String, String) -> Unit = { label, value ->
         clipboardManager.setText(AnnotatedString(value))
         Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
@@ -177,46 +197,59 @@ internal fun ProblemPane(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        SupportTab.entries.forEach { tab ->
-                            SupportTabChip(
-                                label = tab.label,
-                                selected = selectedTab == tab,
-                                onClick = { onSelectedTabChange(tab) }
+                        if (previewMode) {
+                            Text(
+                                text = "Preview",
+                                color = TextPrimary,
+                                style = MaterialTheme.typography.titleMedium
                             )
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        ActionChip(
-                            label = if (activeJobTarget == ExecutionTarget.LocalSubmission) "Checking..." else "Submit",
-                            active = activeJobTarget == ExecutionTarget.LocalSubmission,
-                            emphasized = true,
-                            enabled = activeJobTarget == null,
-                            onClick = {
-                                if (activeJobTarget != null) return@ActionChip
-                                onSelectedTabChange(SupportTab.Results)
-                                if (enabledSubmissionCases == 0) {
+                            Spacer(modifier = Modifier.weight(1f))
+                            StatusBadge(
+                                label = "Read Only",
+                                color = AccentBlue
+                            )
+                        } else {
+                            SupportTab.entries.forEach { tab ->
+                                SupportTabChip(
+                                    label = tab.label,
+                                    selected = selectedTab == tab,
+                                    onClick = { onSelectedTabChange(tab) }
+                                )
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            ActionChip(
+                                label = if (activeJobTarget == ExecutionTarget.LocalSubmission) "Checking..." else "Submit",
+                                active = activeJobTarget == ExecutionTarget.LocalSubmission,
+                                emphasized = true,
+                                enabled = activeJobTarget == null,
+                                onClick = {
+                                    if (activeJobTarget != null) return@ActionChip
+                                    onSelectedTabChange(SupportTab.Results)
+                                    if (enabledSubmissionCases == 0) {
+                                        executionResult = ProblemExecutionResult(
+                                            target = ExecutionTarget.LocalSubmission,
+                                            status = ExecutionStatus.Error,
+                                            title = "Local Submission Error",
+                                            summary = "This problem does not have a bundled local submission suite yet."
+                                        )
+                                        return@ActionChip
+                                    }
                                     executionResult = ProblemExecutionResult(
                                         target = ExecutionTarget.LocalSubmission,
-                                        status = ExecutionStatus.Error,
-                                        title = "Local Submission Error",
-                                        summary = "This problem does not have a bundled local submission suite yet."
+                                        status = ExecutionStatus.Running,
+                                        title = "Running Local Submission",
+                                        summary = "Executing the current Python draft against the built-in local submission suite."
                                     )
-                                    return@ActionChip
+                                    scope.launch {
+                                        executionResult = localPythonExecutionService.runLocalSubmission(
+                                            executionPipeline = problem.executionPipeline,
+                                            testSuite = submissionTestSuite,
+                                            draftCode = draftCode
+                                        )
+                                    }
                                 }
-                                executionResult = ProblemExecutionResult(
-                                    target = ExecutionTarget.LocalSubmission,
-                                    status = ExecutionStatus.Running,
-                                    title = "Running Local Submission",
-                                    summary = "Executing the current Python draft against the built-in local submission suite."
-                                )
-                                scope.launch {
-                                    executionResult = localPythonExecutionService.runLocalSubmission(
-                                        executionPipeline = problem.executionPipeline,
-                                        testSuite = submissionTestSuite,
-                                        draftCode = draftCode
-                                    )
-                                }
-                            }
-                        )
+                            )
+                        }
                     }
                     HorizontalDivider(color = DividerColor)
                 }
@@ -228,7 +261,7 @@ internal fun ProblemPane(
                     .verticalScroll(contentScrollState),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                when (selectedTab) {
+                when (if (previewMode) SupportTab.Problem else selectedTab) {
                     SupportTab.Problem -> {
                         CardBlock(title = "Problem", modifier = Modifier.fillMaxWidth()) {
                             Row(
@@ -272,26 +305,64 @@ internal fun ProblemPane(
                             )
                         }
 
+                        if (hasComments) {
+                            CardBlock(
+                                title = "Comments",
+                                modifier = Modifier.fillMaxWidth(),
+                                trailing = {
+                                    PlainActionChip(
+                                        label = if (commentsVisible) "Hide" else "Show"
+                                    ) {
+                                        commentsVisible = !commentsVisible
+                                    }
+                                }
+                            ) {
+                                if (commentsVisible) {
+                                    Text(
+                                        text = commentsText,
+                                        color = TextSecondary,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Comments are hidden until you reveal them.",
+                                        color = TextMuted,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+
                         CardBlock(
                             title = "Hints",
                             modifier = Modifier.fillMaxWidth(),
-                            trailing = {
-                                PlainActionChip(
-                                    when {
-                                        revealedHintCount == 0 -> "Show"
-                                        revealedHintCount < hints.size -> "Next"
-                                        else -> "Reset"
-                                    }
-                                ) {
-                                    revealedHintCount = if (revealedHintCount < hints.size) {
-                                        revealedHintCount + 1
-                                    } else {
-                                        0
+                            trailing = if (hints.isNotEmpty()) {
+                                {
+                                    PlainActionChip(
+                                        when {
+                                            revealedHintCount == 0 -> "Show"
+                                            revealedHintCount < hints.size -> "Next"
+                                            else -> "Reset"
+                                        }
+                                    ) {
+                                        revealedHintCount = if (revealedHintCount < hints.size) {
+                                            revealedHintCount + 1
+                                        } else {
+                                            0
+                                        }
                                     }
                                 }
+                            } else {
+                                null
                             }
                         ) {
-                            if (revealedHintCount > 0) {
+                            if (hints.isEmpty()) {
+                                Text(
+                                    text = "No hints added yet.",
+                                    color = TextMuted,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            } else if (revealedHintCount > 0) {
                                 hints.take(revealedHintCount).forEachIndexed { index, hint ->
                                     HintLine(number = index + 1, text = hint)
                                     if (index < revealedHintCount - 1) {
@@ -624,6 +695,25 @@ private fun buildCaseResultText(result: ProblemTestCaseResult): String {
             append(duration)
             append(" ms")
         }
+    }
+}
+
+private fun deriveSummaryFallback(statementMarkdown: String, fallbackTitle: String): String {
+    val paragraph = statementMarkdown
+        .lineSequence()
+        .map { it.trim() }
+        .dropWhile { it.isBlank() }
+        .takeWhile { it.isNotBlank() }
+        .joinToString(" ")
+        .replace("**", "")
+        .replace("`", "")
+        .replace(Regex("""\s+"""), " ")
+        .trim()
+
+    return when {
+        paragraph.isBlank() -> fallbackTitle.trim()
+        paragraph.length <= 220 -> paragraph
+        else -> paragraph.take(217).trimEnd() + "..."
     }
 }
 

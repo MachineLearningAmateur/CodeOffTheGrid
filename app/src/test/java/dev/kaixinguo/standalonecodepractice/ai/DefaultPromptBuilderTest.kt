@@ -7,6 +7,21 @@ class DefaultPromptBuilderTest {
     private val subject = DefaultPromptBuilder()
 
     @Test
+    fun build_createProblem_prompt_usesComposerDefaults() {
+        val prompt = subject.build(
+            mode = PromptMode.CREATE_PROBLEM,
+            problem = "Composer draft here",
+            code = "class Solution:\n    pass",
+            userRequest = null
+        )
+
+        assertTrue(prompt.contains("coding-problem authoring assistant"))
+        assertTrue(prompt.contains("Composer context:\nComposer draft here"))
+        assertTrue(prompt.contains("Current starter code:\nclass Solution:\n    pass"))
+        assertTrue(prompt.contains("User request:\nHelp me draft this problem and fill in the missing pieces."))
+    }
+
+    @Test
     fun build_hint_prompt_with_code() {
         val prompt = subject.build(
             mode = PromptMode.HINT,

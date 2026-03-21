@@ -23,6 +23,33 @@ internal data class ProblemListItem(
     val executionPipeline: ProblemExecutionPipeline = ProblemExecutionPipeline.SingleMethod
 )
 
+internal data class ProblemComposerDraft(
+    val destinationSetId: String = "",
+    val title: String = "",
+    val difficulty: String = "Easy",
+    val summary: String = "",
+    val statementMarkdown: String = "",
+    val exampleInput: String = "",
+    val exampleOutput: String = "",
+    val starterCode: String = "",
+    val starterCodeMode: ProblemStarterCodeMode = ProblemStarterCodeMode.Auto,
+    val hintsText: String = "",
+    val submissionTestSuiteJson: String = "",
+    val executionPipelineOverride: String = ""
+)
+
+internal data class ProblemComposerSession(
+    val tab: ProblemComposerTab = ProblemComposerTab.Create,
+    val draft: ProblemComposerDraft = ProblemComposerDraft(),
+    val importedFileName: String? = null,
+    val errorMessage: String? = null
+)
+
+internal data class ProblemComposerDestination(
+    val setId: String,
+    val label: String
+)
+
 internal data class ProblemSetState(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
@@ -70,6 +97,16 @@ internal enum class SupportTab(val label: String) {
     Problem("Problem"),
     Custom("Custom"),
     Results("Results")
+}
+
+internal enum class ProblemComposerTab(val label: String) {
+    Create("Create"),
+    Import("Import")
+}
+
+internal enum class ProblemStarterCodeMode {
+    Auto,
+    Manual
 }
 
 internal enum class SketchTool {

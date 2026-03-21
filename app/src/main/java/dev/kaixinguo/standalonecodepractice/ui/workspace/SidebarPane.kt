@@ -96,6 +96,8 @@ internal fun SidebarPane(
     onDeleteSet: (String) -> Unit,
     onDeleteFolder: (String) -> Unit,
     onMoveProblem: (String, String, ProblemListItem, Int) -> Unit,
+    onOpenProblemComposer: () -> Unit,
+    problemComposerActive: Boolean,
     selectedMode: SidebarMode,
     onModeSelected: (SidebarMode) -> Unit,
     collapsed: Boolean,
@@ -106,6 +108,7 @@ internal fun SidebarPane(
     askAiFullscreen: Boolean,
     onToggleAskAiFullscreen: () -> Unit,
     selectedProblem: ProblemListItem?,
+    composerSession: ProblemComposerSession?,
     currentDraftCode: String,
     currentCustomTestSuite: ProblemTestSuite,
     customExecutionResult: ProblemExecutionResult,
@@ -130,6 +133,7 @@ internal fun SidebarPane(
         if (collapsed && !showAskAiFullscreen) {
             CollapsedSidebarPane(
                 selectedMode = selectedMode,
+                modeSelectionLocked = problemComposerActive,
                 onModeSelected = onModeSelected,
                 onToggleCollapsed = onToggleCollapsed,
                 modifier = Modifier.fillMaxSize()
@@ -164,6 +168,7 @@ internal fun SidebarPane(
                 if (showNavigationChrome) {
                     SidebarModeSelector(
                         selectedMode = selectedMode,
+                        modeSelectionLocked = problemComposerActive,
                         onModeSelected = onModeSelected
                     )
                 }
@@ -183,7 +188,9 @@ internal fun SidebarPane(
                         protectedFolderIds = protectedFolderIds,
                         protectedSetIds = protectedSetIds,
                         protectedProblemIds = protectedProblemIds,
-                        onMoveProblem = onMoveProblem
+                        onMoveProblem = onMoveProblem,
+                        onOpenProblemComposer = onOpenProblemComposer,
+                        problemComposerActive = problemComposerActive
                     )
                     SidebarMode.Stats -> StatsSidebarContent(
                         folders = folders
@@ -192,6 +199,7 @@ internal fun SidebarPane(
                         fullscreen = showAskAiFullscreen,
                         onToggleFullscreen = onToggleAskAiFullscreen,
                         selectedProblem = selectedProblem,
+                        composerSession = composerSession,
                         currentDraftCode = currentDraftCode,
                         currentCustomTestSuite = currentCustomTestSuite,
                         customExecutionResult = customExecutionResult,
@@ -313,6 +321,7 @@ private fun ColumnScope.StatsSidebarContent(
 @Composable
 private fun CollapsedSidebarPane(
     selectedMode: SidebarMode,
+    modeSelectionLocked: Boolean,
     onModeSelected: (SidebarMode) -> Unit,
     onToggleCollapsed: () -> Unit,
     modifier: Modifier = Modifier
@@ -342,6 +351,7 @@ private fun CollapsedSidebarPane(
                     RailModeButton(
                         label = mode.shortLabel(),
                         selected = selectedMode == mode,
+                        enabled = !modeSelectionLocked,
                         onClick = {
                             onModeSelected(mode)
                             onToggleCollapsed()
@@ -358,6 +368,7 @@ private fun CollapsedSidebarPane(
 @Composable
 private fun SidebarModeSelector(
     selectedMode: SidebarMode,
+    modeSelectionLocked: Boolean,
     onModeSelected: (SidebarMode) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -372,7 +383,13 @@ private fun SidebarModeSelector(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = true }
+                    .then(
+                        if (!modeSelectionLocked) {
+                            Modifier.clickable { expanded = true }
+                        } else {
+                            Modifier
+                        }
+                    )
                     .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -383,11 +400,14 @@ private fun SidebarModeSelector(
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
-                SmallActionChip("Swap")
+                SmallActionChip(
+                    label = if (modeSelectionLocked) "Locked" else "Swap",
+                    enabled = !modeSelectionLocked
+                )
             }
 
             DropdownMenu(
-                expanded = expanded,
+                expanded = expanded && !modeSelectionLocked,
                 onDismissRequest = { expanded = false }
             ) {
                 SidebarMode.entries.forEach { mode ->
@@ -419,7 +439,9 @@ private fun ProblemsSidebarContent(
     protectedFolderIds: Set<String>,
     protectedSetIds: Set<String>,
     protectedProblemIds: Set<String>,
-    onMoveProblem: (String, String, ProblemListItem, Int) -> Unit
+    onMoveProblem: (String, String, ProblemListItem, Int) -> Unit,
+    onOpenProblemComposer: () -> Unit,
+    problemComposerActive: Boolean
 ) {
     var query by remember { mutableStateOf("") }
     var problemFilter by remember { mutableStateOf(ProblemFilter.All) }
@@ -685,9 +707,19 @@ private fun ProblemsSidebarContent(
                     ) {
                         PlainActionChip(
                             label = "New Folder",
-                            iconRes = R.drawable.ic_plus
+                            iconRes = R.drawable.ic_plus,
+                            modifier = Modifier.weight(1f)
                         ) {
                             creatingFolder = true
+                        }
+                        PlainActionChip(
+                            label = if (problemComposerActive) "Editing" else "Add / Import",
+                            iconRes = R.drawable.ic_plus,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            if (!problemComposerActive) {
+                                onOpenProblemComposer()
+                            }
                         }
                     }
                 }
@@ -1137,6 +1169,7 @@ private fun ColumnScope.AskAiSidebarContent(
     fullscreen: Boolean,
     onToggleFullscreen: () -> Unit,
     selectedProblem: ProblemListItem?,
+    composerSession: ProblemComposerSession?,
     currentDraftCode: String,
     currentCustomTestSuite: ProblemTestSuite,
     customExecutionResult: ProblemExecutionResult,
@@ -1146,10 +1179,23 @@ private fun ColumnScope.AskAiSidebarContent(
 ) {
     val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
-    var selectedMode by remember(selectedProblem?.id) { mutableStateOf(PromptMode.HINT) }
-    var promptDraft by remember(selectedProblem?.id) { mutableStateOf("") }
-    var messages by remember(selectedProblem?.id) { mutableStateOf(listOf<AiChatMessage>()) }
+    val composerActive = composerSession != null
+    val availableModes = if (composerActive) {
+        listOf(PromptMode.CREATE_PROBLEM)
+    } else {
+        PromptMode.entries.filterNot { it == PromptMode.CREATE_PROBLEM }
+    }
+    var selectedMode by remember(selectedProblem?.id, composerActive) {
+        mutableStateOf(if (composerActive) PromptMode.CREATE_PROBLEM else PromptMode.HINT)
+    }
+    var promptDraft by remember(selectedProblem?.id, composerActive) { mutableStateOf("") }
+    var messages by remember(selectedProblem?.id, composerActive) { mutableStateOf(listOf<AiChatMessage>()) }
     var isLoading by remember { mutableStateOf(false) }
+    val composerStarterCode = remember(composerSession?.draft) {
+        composerSession?.draft
+            ?.effectiveStarterCode()
+            ?.takeIf { it.isNotBlank() }
+    }
     val availableDraftCode = remember(currentDraftCode) {
         normalizedCodeForReview(currentDraftCode).takeIf { it.isNotBlank() }
     }
@@ -1160,10 +1206,11 @@ private fun ColumnScope.AskAiSidebarContent(
                     .takeIf { draft -> draft.isNotBlank() && draft != normalizedCodeForReview(problem.starterCode) }
             }
     }
-    val codeForMode = when (selectedMode) {
-        PromptMode.EXPLAIN -> availableDraftCode
-        PromptMode.REVIEW_CODE -> userWrittenDraftCode
-        PromptMode.TEST_CASES -> null
+    val codeForMode = when {
+        composerActive && selectedMode == PromptMode.CREATE_PROBLEM -> composerStarterCode
+        selectedMode == PromptMode.EXPLAIN -> availableDraftCode
+        selectedMode == PromptMode.REVIEW_CODE -> userWrittenDraftCode
+        selectedMode == PromptMode.TEST_CASES -> null
         else -> userWrittenDraftCode
     }
     val submissionTestSuite = remember(
@@ -1179,16 +1226,26 @@ private fun ColumnScope.AskAiSidebarContent(
             ProblemInputNormalizer.normalizeSubmissionTestSuite(
                 problem = problem,
                 testSuite = problem.submissionTestSuite.takeIf {
-                    it.cases.isNotEmpty() || it.draft.isNotBlank()
+                    it.cases.isNotEmpty()
                 } ?: ProblemSubmissionSuiteFactory.build(problem)
             )
         } ?: ProblemTestSuite()
     }
-    val canSend = selectedProblem != null && !isLoading
+    val canSend = (selectedProblem != null || composerActive) && !isLoading
     val shouldIncludeDraft = codeForMode != null
     var modeMenuExpanded by remember { mutableStateOf(false) }
     val compactLayout = !fullscreen
     val supportsFreeText = modeSupportsFreeText(selectedMode)
+    val panelTitle = when {
+        composerActive -> composerSession?.draft?.title?.trim().orEmpty().ifBlank { "Problem Composer" }
+        else -> selectedProblem?.title ?: "No problem selected"
+    }
+    val panelContextLabel = when {
+        composerActive && shouldIncludeDraft -> "Composer context and starter code included"
+        composerActive -> "Composer context included"
+        shouldIncludeDraft -> "Draft included"
+        else -> "Draft not included"
+    }
 
     LaunchedEffect(messages.size, isLoading) {
         chatScrollState.scrollTo(chatScrollState.maxValue)
@@ -1216,14 +1273,14 @@ private fun ColumnScope.AskAiSidebarContent(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = selectedProblem?.title ?: "No problem selected",
+                            text = panelTitle,
                             color = TextPrimary,
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = if (compactLayout) 2 else 3,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (shouldIncludeDraft) "Draft included" else "Draft not included",
+                            text = panelContextLabel,
                             color = TextMuted,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -1235,6 +1292,7 @@ private fun ColumnScope.AskAiSidebarContent(
                     ) {
                         AiModeSelectorChip(
                             selectedMode = selectedMode,
+                            availableModes = availableModes,
                             expanded = modeMenuExpanded,
                             onExpandedChange = { modeMenuExpanded = it },
                             onModeSelected = { selectedMode = it },
@@ -1299,6 +1357,7 @@ private fun ColumnScope.AskAiSidebarContent(
                                 sender = AiChatSender.Assistant,
                                 mode = selectedMode,
                                 text = when (selectedMode) {
+                                    PromptMode.CREATE_PROBLEM -> "Drafting the problem..."
                                     PromptMode.HINT -> "Thinking through a hint..."
                                     PromptMode.EXPLAIN -> "Putting the explanation together..."
                                     PromptMode.REVIEW_CODE -> "Reviewing the current draft..."
@@ -1366,14 +1425,17 @@ private fun ColumnScope.AskAiSidebarContent(
                         onClick = if (canSend) {
                             {
                                 val activeProblem = selectedProblem ?: run {
-                                    messages = messages + AiChatMessage(
-                                        sender = AiChatSender.System,
-                                        mode = selectedMode,
-                                        text = "Select a problem first."
-                                    )
-                                    return@PlainActionChip
+                                    if (!composerActive) {
+                                        messages = messages + AiChatMessage(
+                                            sender = AiChatSender.System,
+                                            mode = selectedMode,
+                                            text = "Select a problem first."
+                                        )
+                                        return@PlainActionChip
+                                    }
+                                    null
                                 }
-                                if (selectedMode == PromptMode.REVIEW_CODE && userWrittenDraftCode == null) {
+                                if (!composerActive && selectedMode == PromptMode.REVIEW_CODE && userWrittenDraftCode == null) {
                                     messages = messages + AiChatMessage(
                                         sender = AiChatSender.System,
                                         mode = selectedMode,
@@ -1383,14 +1445,20 @@ private fun ColumnScope.AskAiSidebarContent(
                                 }
                                 val promptText = if (supportsFreeText) promptDraft.trim() else ""
                                 val userMessage = promptText.ifBlank { defaultChatMessageForMode(selectedMode) }
-                                val problemPrompt = buildAiProblemContext(
-                                    problem = activeProblem,
-                                    mode = selectedMode,
-                                    customTestSuite = currentCustomTestSuite,
-                                    submissionTestSuite = submissionTestSuite,
-                                    customExecutionResult = customExecutionResult,
-                                    submissionExecutionResult = submissionExecutionResult
-                                )
+                                val problemPrompt = if (composerActive) {
+                                    buildAiComposerContext(
+                                        draft = composerSession!!.draft
+                                    )
+                                } else {
+                                    buildAiProblemContext(
+                                        problem = activeProblem!!,
+                                        mode = selectedMode,
+                                        customTestSuite = currentCustomTestSuite,
+                                        submissionTestSuite = submissionTestSuite,
+                                        customExecutionResult = customExecutionResult,
+                                        submissionExecutionResult = submissionExecutionResult
+                                    )
+                                }
                                 val explicitRequest = promptText.takeIf { it.isNotBlank() }
                                 messages = messages + AiChatMessage(
                                     sender = AiChatSender.User,
@@ -1404,6 +1472,7 @@ private fun ColumnScope.AskAiSidebarContent(
                                 scope.launch {
                                     runCatching {
                                         when (selectedMode) {
+                                            PromptMode.CREATE_PROBLEM -> aiAssistant.createProblem(problemPrompt, codeForMode, explicitRequest)
                                             PromptMode.HINT -> aiAssistant.generateHint(problemPrompt, codeForMode, explicitRequest)
                                             PromptMode.EXPLAIN -> aiAssistant.explainSolution(problemPrompt, codeForMode, explicitRequest)
                                             PromptMode.REVIEW_CODE -> aiAssistant.reviewCode(problemPrompt, codeForMode, explicitRequest)
@@ -1450,6 +1519,7 @@ private fun ColumnScope.AskAiSidebarContent(
 @Composable
 private fun AiModeSelectorChip(
     selectedMode: PromptMode,
+    availableModes: List<PromptMode>,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onModeSelected: (PromptMode) -> Unit,
@@ -1490,7 +1560,7 @@ private fun AiModeSelectorChip(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) }
         ) {
-            PromptMode.entries.forEach { promptMode ->
+            availableModes.forEach { promptMode ->
                 DropdownMenuItem(
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1631,8 +1701,18 @@ private fun buildAiProblemContext(
     }
 }
 
+private fun buildAiComposerContext(
+    draft: ProblemComposerDraft
+): String {
+    return ProblemPromptFormatter.formatComposer(
+        draft = draft,
+        effectiveStarterCode = draft.effectiveStarterCode()
+    )
+}
+
 private fun defaultChatMessageForMode(mode: PromptMode): String {
     return when (mode) {
+        PromptMode.CREATE_PROBLEM -> "Help me draft this problem."
         PromptMode.HINT -> "Give me a hint."
         PromptMode.EXPLAIN -> "Explain the solution."
         PromptMode.REVIEW_CODE -> "Review my current code with inline comments."
@@ -1643,6 +1723,7 @@ private fun defaultChatMessageForMode(mode: PromptMode): String {
 
 private fun compactModeDescription(mode: PromptMode): String {
     return when (mode) {
+        PromptMode.CREATE_PROBLEM -> "Draft problem fields from the current composer."
         PromptMode.HINT -> "Get a small next-step nudge."
         PromptMode.EXPLAIN -> "Get the idea and complexity."
         PromptMode.REVIEW_CODE -> "Review the draft with inline comments."
@@ -1654,7 +1735,7 @@ private fun compactModeDescription(mode: PromptMode): String {
 private fun modeSupportsFreeText(mode: PromptMode): Boolean {
     return when (mode) {
         PromptMode.REVIEW_CODE, PromptMode.SOLVE -> false
-        PromptMode.HINT, PromptMode.EXPLAIN, PromptMode.TEST_CASES -> true
+        PromptMode.CREATE_PROBLEM, PromptMode.HINT, PromptMode.EXPLAIN, PromptMode.TEST_CASES -> true
     }
 }
 
@@ -1667,6 +1748,7 @@ private fun normalizedCodeForReview(code: String): String {
 private fun composerLabel(mode: PromptMode, supportsFreeText: Boolean): String {
     if (supportsFreeText) {
         return when (mode) {
+            PromptMode.CREATE_PROBLEM -> "Problem draft request"
             PromptMode.HINT -> "Hint request"
             PromptMode.EXPLAIN -> "Explain request"
             PromptMode.REVIEW_CODE -> "Code review request"
@@ -1678,6 +1760,7 @@ private fun composerLabel(mode: PromptMode, supportsFreeText: Boolean): String {
     return when (mode) {
         PromptMode.REVIEW_CODE -> "Code review action"
         PromptMode.SOLVE -> "Solve action"
+        PromptMode.CREATE_PROBLEM -> "Problem draft request"
         PromptMode.HINT -> "Hint request"
         PromptMode.EXPLAIN -> "Explain request"
         PromptMode.TEST_CASES -> "Test generation request"
@@ -1688,6 +1771,7 @@ private fun fixedActionMessage(mode: PromptMode): String {
     return when (mode) {
         PromptMode.REVIEW_CODE -> "Returns an inline-commented copy of the current draft showing where runtime, space, and obvious issues come from."
         PromptMode.SOLVE -> "Runs a fixed full-solution request for the current problem."
+        PromptMode.CREATE_PROBLEM,
         PromptMode.HINT,
         PromptMode.EXPLAIN,
         PromptMode.TEST_CASES -> ""
@@ -1697,6 +1781,7 @@ private fun fixedActionMessage(mode: PromptMode): String {
 private fun emptyStateMessage(mode: PromptMode, compact: Boolean): String {
     return if (!compact) {
         when (mode) {
+            PromptMode.CREATE_PROBLEM -> "Ask for a full draft, better wording, cleaner examples, hints, or starter code based on the current composer."
             PromptMode.HINT -> "Ask for a hint, or leave the box empty to get a small nudge."
             PromptMode.EXPLAIN -> "Ask for an explanation, or add what you want emphasized."
             PromptMode.REVIEW_CODE -> "Review the current draft and get an inline-commented copy that explains runtime, space, and obvious issues."
@@ -1705,6 +1790,7 @@ private fun emptyStateMessage(mode: PromptMode, compact: Boolean): String {
         }
     } else {
         when (mode) {
+            PromptMode.CREATE_PROBLEM -> "Ask for a better problem draft."
             PromptMode.HINT -> "Ask for a small hint."
             PromptMode.EXPLAIN -> "Ask for a clear walkthrough."
             PromptMode.REVIEW_CODE -> "Review the draft with inline comments."
@@ -1719,6 +1805,7 @@ private fun actionButtonLabel(mode: PromptMode, compact: Boolean): String {
         mode.actionLabel
     } else {
         when (mode) {
+            PromptMode.CREATE_PROBLEM -> "Draft"
             PromptMode.HINT -> "Hint"
             PromptMode.EXPLAIN -> "Explain"
             PromptMode.REVIEW_CODE -> "Review"

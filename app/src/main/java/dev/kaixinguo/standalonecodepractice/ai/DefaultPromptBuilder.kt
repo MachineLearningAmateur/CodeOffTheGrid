@@ -22,6 +22,7 @@ internal class DefaultPromptBuilder : PromptBuilder {
 
     private fun defaultRequestForMode(mode: PromptMode): String {
         return when (mode) {
+            PromptMode.CREATE_PROBLEM -> "Help me draft this problem and fill in the missing pieces."
             PromptMode.HINT -> "Give me a hint."
             PromptMode.EXPLAIN -> "Explain the solution in plain beginner-friendly English."
             PromptMode.REVIEW_CODE -> "Review my current code and explain its runtime and space complexity."

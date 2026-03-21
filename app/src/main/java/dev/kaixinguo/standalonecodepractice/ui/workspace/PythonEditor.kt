@@ -358,10 +358,11 @@ private fun highlightPython(source: String): AnnotatedString {
 }
 
 @Composable
-private fun EditablePythonSurface(
+internal fun EditablePythonSurface(
     code: String,
     onCodeChange: (String) -> Unit,
     readOnly: Boolean,
+    placeholder: String = "Write your Python solution here...",
     modifier: Modifier = Modifier
 ) {
     val lines = remember(code) { code.lines().size.coerceAtLeast(1) }
@@ -448,7 +449,7 @@ private fun EditablePythonSurface(
                         Box(modifier = Modifier.wrapContentWidth(unbounded = true)) {
                             if (editorValue.text.isEmpty()) {
                                 Text(
-                                    text = "Write your Python solution here...",
+                                    text = placeholder,
                                     color = TextMuted,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontFamily = FontFamily.Monospace

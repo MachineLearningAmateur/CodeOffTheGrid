@@ -2,6 +2,7 @@ package dev.kaixinguo.standalonecodepractice.ai
 
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ExecutionStatus
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ExecutionTarget
+import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemComposerDraft
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemExecutionResult
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemListItem
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestCase
@@ -12,6 +13,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProblemPromptFormatterTest {
+    @Test
+    fun formatComposer_includesDraftFieldsAndMissingList() {
+        val prompt = ProblemPromptFormatter.formatComposer(
+            draft = ProblemComposerDraft(
+                title = "Two Sum",
+                difficulty = "Easy",
+                summary = "Classic warm-up.",
+                statementMarkdown = "Find two indices.",
+                exampleInput = "nums = [2,7,11,15], target = 9",
+                exampleOutput = "[0,1]"
+            ),
+            effectiveStarterCode = "class Solution:\n    def twoSum(self, nums, target):\n        pass"
+        )
+
+        assertTrue(prompt.contains("Composer draft:"))
+        assertTrue(prompt.contains("Title: Two Sum"))
+        assertTrue(prompt.contains("About This Problem:"))
+        assertTrue(prompt.contains("Classic warm-up."))
+        assertTrue(prompt.contains("Starter code mode: Auto"))
+        assertTrue(prompt.contains("Missing or weak fields:"))
+        assertTrue(prompt.contains("- Hints"))
+    }
+
     @Test
     fun format_includes_test_suites_and_recorded_results() {
         val problem = ProblemListItem(

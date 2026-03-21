@@ -5,6 +5,15 @@ internal class DefaultAiAssistant(
     private val localQwenEngine: LocalQwenEngine,
     private val generatedTestSuiteJsonParser: GeneratedTestSuiteJsonParser = GeneratedTestSuiteJsonParser()
 ) : AiAssistant {
+    override suspend fun createProblem(problem: String, code: String?, request: String?): String {
+        return generate(
+            mode = PromptMode.CREATE_PROBLEM,
+            problem = problem,
+            code = code,
+            request = request
+        )
+    }
+
     override suspend fun generateHint(problem: String, code: String?, request: String?): String {
         return generate(
             mode = PromptMode.HINT,

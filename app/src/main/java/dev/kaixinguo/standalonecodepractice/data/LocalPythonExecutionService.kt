@@ -103,7 +103,6 @@ internal class LocalPythonExecutionService(
             )
         }
         return JSONObject()
-            .put("draft", testSuite.draft)
             .put("executionPipeline", executionPipeline.storageValue)
             .put("cases", cases)
             .toString()

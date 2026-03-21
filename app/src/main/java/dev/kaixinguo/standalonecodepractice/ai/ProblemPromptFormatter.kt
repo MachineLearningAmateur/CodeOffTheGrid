@@ -2,11 +2,14 @@ package dev.kaixinguo.standalonecodepractice.ai
 
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemListItem
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemExecutionResult
+import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemComposerDraft
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestCase
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestCaseResult
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestComparisonMode
+import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemStarterCodeMode
 import dev.kaixinguo.standalonecodepractice.ui.workspace.ProblemTestSuite
 import dev.kaixinguo.standalonecodepractice.ui.workspace.TestCaseStatus
+import dev.kaixinguo.standalonecodepractice.ui.workspace.parseComposerHintsText
 
 internal object ProblemPromptFormatter {
     fun format(
@@ -57,6 +60,55 @@ internal object ProblemPromptFormatter {
                 title = "Latest local submission result",
                 result = submissionExecutionResult
             )
+        }.trim()
+
+        return truncateBlock(context, MAX_CONTEXT_CHARS)
+    }
+
+    fun formatComposer(
+        draft: ProblemComposerDraft,
+        effectiveStarterCode: String
+    ): String {
+        val context = buildString {
+            appendLine("Composer draft:")
+            appendLine("Title: ${draft.title.trim().ifBlank { "(blank)" }}")
+            appendLine("Difficulty: ${draft.difficulty.trim().ifBlank { "(blank)" }}")
+            appendLine("About This Problem:")
+            appendLine(truncateBlock(draft.summary.ifBlank { "(blank)" }, MAX_SUMMARY_CHARS))
+            appendLine()
+            appendLine("Statement:")
+            appendLine(truncateBlock(draft.statementMarkdown.ifBlank { "(blank)" }, MAX_STATEMENT_CHARS))
+            appendLine()
+            appendLine("Example input:")
+            appendLine(truncateBlock(draft.exampleInput.ifBlank { "(blank)" }, MAX_EXAMPLE_CHARS))
+            appendLine()
+            appendLine("Example output:")
+            appendLine(truncateBlock(draft.exampleOutput.ifBlank { "(blank)" }, MAX_EXAMPLE_CHARS))
+            appendLine()
+            appendLine("Hints:")
+            appendLine(
+                truncateBlock(
+                    parseComposerHintsText(draft.hintsText)
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .joinToString("\n")
+                        .ifBlank { "(blank)" },
+                    MAX_HINTS_CHARS
+                )
+            )
+            appendLine()
+            appendLine("Starter code mode: ${if (draft.starterCodeMode == ProblemStarterCodeMode.Auto) "Auto" else "Manual"}")
+            appendLine("Starter code:")
+            appendLine(truncateBlock(effectiveStarterCode.ifBlank { "(blank)" }, MAX_STARTER_CODE_CHARS))
+            appendLine()
+            appendLine("Execution pipeline override: ${draft.executionPipelineOverride.ifBlank { "Auto Detect" }}")
+            appendLine("Advanced submission suite JSON:")
+            appendLine(truncateBlock(draft.submissionTestSuiteJson.ifBlank { "(blank)" }, MAX_SUBMISSION_SUITE_CHARS))
+            appendLine()
+            appendLine("Missing or weak fields:")
+            missingComposerFields(draft).forEach { field ->
+                appendLine("- $field")
+            }
         }.trim()
 
         return truncateBlock(context, MAX_CONTEXT_CHARS)
@@ -206,10 +258,26 @@ internal object ProblemPromptFormatter {
                 )
     }
 
+    private fun missingComposerFields(draft: ProblemComposerDraft): List<String> {
+        return buildList {
+            if (draft.title.isBlank()) add("Title")
+            if (draft.statementMarkdown.isBlank()) add("Statement")
+            if (draft.exampleInput.isBlank()) add("Example Input")
+            if (draft.exampleOutput.isBlank()) add("Example Output")
+            if (draft.hintsText.isBlank()) add("Hints")
+            if (draft.summary.isBlank()) add("About This Problem")
+            if (draft.destinationSetId.isBlank()) add("Destination Set")
+            if (isEmpty()) add("None")
+        }
+    }
+
     private const val MAX_CONTEXT_CHARS = 5_200
     private const val MAX_STATEMENT_CHARS = 1_800
     private const val MAX_EXAMPLE_CHARS = 400
     private const val MAX_SUMMARY_CHARS = 240
+    private const val MAX_HINTS_CHARS = 320
+    private const val MAX_STARTER_CODE_CHARS = 900
+    private const val MAX_SUBMISSION_SUITE_CHARS = 500
     private const val MAX_STDIO_CHARS = 320
     private const val MAX_TEST_CASE_FIELD_CHARS = 220
     private const val MAX_CASES_PER_TEST_SUITE_SECTION = 2

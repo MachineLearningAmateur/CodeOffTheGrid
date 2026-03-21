@@ -503,21 +503,24 @@ internal fun StatusBadge(label: String, color: Color) {
 }
 
 @Composable
-internal fun SmallActionChip(label: String) {
+internal fun SmallActionChip(
+    label: String,
+    enabled: Boolean = true
+) {
     Surface(
-        color = CardBackgroundAlt,
+        color = if (enabled) CardBackgroundAlt else CardBackgroundAlt.copy(alpha = 0.62f),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, CardBorder)
+        border = BorderStroke(1.dp, if (enabled) CardBorder else CardBorder.copy(alpha = 0.6f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            StackIcon()
+            StackIcon(enabled = enabled)
             Text(
                 text = label,
-                color = TextSecondary,
+                color = if (enabled) TextSecondary else TextSecondary.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.labelSmall
             )
         }
@@ -525,7 +528,7 @@ internal fun SmallActionChip(label: String) {
 }
 
 @Composable
-internal fun StackIcon() {
+internal fun StackIcon(enabled: Boolean = true) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         repeat(3) {
             Box(
@@ -533,7 +536,7 @@ internal fun StackIcon() {
                     .width(10.dp)
                     .height(2.dp)
                     .clip(RoundedCornerShape(99.dp))
-                    .background(TextSecondary)
+                    .background(if (enabled) TextSecondary else TextSecondary.copy(alpha = 0.7f))
             )
         }
     }
@@ -604,15 +607,27 @@ internal fun WorkspaceModeChip(
 internal fun RailModeButton(
     label: String,
     selected: Boolean,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Surface(
-        color = if (selected) AccentBlue.copy(alpha = 0.16f) else CardBackgroundAlt,
+        color = when {
+            !enabled -> CardBackgroundAlt.copy(alpha = 0.62f)
+            selected -> AccentBlue.copy(alpha = 0.16f)
+            else -> CardBackgroundAlt
+        },
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, if (selected) AccentBlue.copy(alpha = 0.5f) else CardBorder),
+        border = BorderStroke(
+            1.dp,
+            when {
+                !enabled -> CardBorder.copy(alpha = 0.6f)
+                selected -> AccentBlue.copy(alpha = 0.5f)
+                else -> CardBorder
+            }
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
     ) {
         Box(
             modifier = Modifier.padding(vertical = 8.dp),
@@ -620,7 +635,11 @@ internal fun RailModeButton(
         ) {
             Text(
                 text = label,
-                color = if (selected) TextPrimary else TextSecondary,
+                color = when {
+                    !enabled -> TextSecondary.copy(alpha = 0.7f)
+                    selected -> TextPrimary
+                    else -> TextSecondary
+                },
                 style = MaterialTheme.typography.labelSmall
             )
         }

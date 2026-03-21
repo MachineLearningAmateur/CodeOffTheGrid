@@ -7,6 +7,26 @@ import org.junit.Test
 
 class DefaultAiAssistantTest {
     @Test
+    fun createProblem_buildsCreateProblemPromptBeforeCallingEngine() = runBlocking {
+        val engine = RecordingQwenEngine(response = "problem-response")
+        val subject = DefaultAiAssistant(
+            promptBuilder = DefaultPromptBuilder(),
+            localQwenEngine = engine
+        )
+
+        val response = subject.createProblem(
+            problem = "Composer draft context",
+            code = "class Solution:\n    pass",
+            request = "make the wording more interview-like"
+        )
+
+        assertEquals("problem-response", response)
+        assertTrue(engine.prompts.single().contains("Composer draft context"))
+        assertTrue(engine.prompts.single().contains("make the wording more interview-like"))
+        assertTrue(engine.prompts.single().contains("coding-problem authoring assistant"))
+    }
+
+    @Test
     fun generateHint_buildsHintPromptBeforeCallingEngine() = runBlocking {
         val engine = RecordingQwenEngine(response = "hint-response")
         val subject = DefaultAiAssistant(
