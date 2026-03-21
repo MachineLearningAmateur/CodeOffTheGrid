@@ -9,13 +9,17 @@ import android.provider.OpenableColumns
 import com.arm.aichat.AiChat
 import com.arm.aichat.InferenceEngine
 import com.arm.aichat.UnsupportedArchitectureException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -37,9 +41,22 @@ internal class OnDeviceLlamaCppQwenEngine(
     private val operationMutex = Mutex()
     private val _runtimeState = MutableStateFlow(initialRuntimeState())
     override val runtimeState: StateFlow<AiRuntimeState> = _runtimeState.asStateFlow()
+    private val runtimeScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
     private var inferenceEngine: InferenceEngine? = null
     private var modelLoaded = false
+
+    init {
+        if (_runtimeState.value.phase == AiRuntimePhase.Configured) {
+            runtimeScope.launch {
+                runCatching {
+                    operationMutex.withLock {
+                        loadConfiguredModelLocked()
+                    }
+                }
+            }
+        }
+    }
 
     override suspend fun generate(prompt: String): String = operationMutex.withLock {
         require(prompt.isNotBlank()) { "AI prompt cannot be empty." }
@@ -186,10 +203,8 @@ internal class OnDeviceLlamaCppQwenEngine(
                 throw throwable
             }
             modelLoaded = false
-            _runtimeState.value = errorState(
-                modelName = preset.filename,
-                preset = preset,
-                detail = resolveDownloadFailureDetail(throwable)
+            _runtimeState.value = unconfiguredState(
+                detail = "${resolveDownloadFailureDetail(throwable)} Try again to select a model."
             )
             throw throwable
         }
@@ -235,6 +250,7 @@ internal class OnDeviceLlamaCppQwenEngine(
     }
 
     override fun destroy() {
+        runtimeScope.cancel()
         runCatching {
             inferenceEngine?.destroy()
         }
@@ -395,10 +411,12 @@ internal class OnDeviceLlamaCppQwenEngine(
         )
     }
 
-    private fun unconfiguredState(): AiRuntimeState {
+    private fun unconfiguredState(
+        detail: String = "Download a model from Settings to enable Ask AI."
+    ): AiRuntimeState {
         return AiRuntimeState(
             phase = AiRuntimePhase.Unconfigured,
-            detail = "Download a model from Settings to enable Ask AI."
+            detail = detail
         )
     }
 

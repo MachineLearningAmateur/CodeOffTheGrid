@@ -1756,13 +1756,10 @@ private fun ColumnScope.SettingsSidebarContent(
         AiRuntimePhase.Generating,
         AiRuntimePhase.Unloading
     )
+    val downloadingModel = runtimeState.phase == AiRuntimePhase.Downloading
     val hasConfiguredModel = runtimeState.modelName != null
-    val showPresetChooser = !hasConfiguredModel && runtimeState.phase != AiRuntimePhase.Downloading
-    val visiblePresets = when {
-        showPresetChooser -> AiModelPreset.entries.toList()
-        runtimeState.preset != null -> listOfNotNull(runtimeState.preset)
-        else -> emptyList()
-    }
+    val showPresetChooser = !hasConfiguredModel && !downloadingModel
+    val visiblePresets = if (showPresetChooser) AiModelPreset.entries.toList() else emptyList()
 
     Column(
         modifier = Modifier
@@ -1829,7 +1826,7 @@ private fun ColumnScope.SettingsSidebarContent(
             if (visiblePresets.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = if (showPresetChooser) "Recommended models" else "Installed model",
+                    text = "Recommended models",
                     color = TextMuted,
                     style = MaterialTheme.typography.labelSmall
                 )
@@ -1855,64 +1852,24 @@ private fun ColumnScope.SettingsSidebarContent(
                     }
                 }
             }
-            if (hasConfiguredModel) {
+            if (hasConfiguredModel && !downloadingModel) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PlainActionChip(
-                        label = "Load",
-                        accentColor = AccentGreen,
-                        onClick = if (!runtimeBusy && runtimeState.phase != AiRuntimePhase.Ready) {
-                            {
-                                scope.launch {
-                                    runCatching {
-                                        aiRuntimeController.loadConfiguredModel()
-                                    }
+                PlainActionChip(
+                    label = "Unload Model",
+                    accentColor = AccentRed,
+                    onClick = if (!runtimeBusy) {
+                        {
+                            scope.launch {
+                                runCatching {
+                                    aiRuntimeController.removeConfiguredModel()
                                 }
                             }
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    PlainActionChip(
-                        label = "Remove Model",
-                        accentColor = AccentRed,
-                        onClick = if (!runtimeBusy) {
-                            {
-                                scope.launch {
-                                    runCatching {
-                                        aiRuntimeController.removeConfiguredModel()
-                                    }
-                                }
-                            }
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                if (runtimeState.phase == AiRuntimePhase.Ready) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    PlainActionChip(
-                        label = "Unload From Memory",
-                        accentColor = AccentAmber,
-                        onClick = if (!runtimeBusy) {
-                            {
-                                scope.launch {
-                                    runCatching {
-                                        aiRuntimeController.unloadModel()
-                                    }
-                                }
-                            }
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                        }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
 
