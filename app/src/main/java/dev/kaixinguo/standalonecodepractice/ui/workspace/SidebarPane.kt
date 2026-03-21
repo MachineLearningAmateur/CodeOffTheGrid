@@ -1918,6 +1918,8 @@ private fun ColumnScope.SettingsSidebarContent(
     val hasConfiguredModel = runtimeState.currentModelPath != null
     val installedModels = runtimeState.installedModels
     val installedCustomModels = installedModels.filter { it.preset == null }
+    val canLoadConfiguredModel = hasConfiguredModel && runtimeState.phase != AiRuntimePhase.Ready
+    val canUnloadConfiguredModel = runtimeState.phase == AiRuntimePhase.Ready
     val showPresetChooser = !downloadingModel
     val visiblePresets = if (showPresetChooser) listOf(AiModelPreset.QwenCoder15BQ4) else emptyList()
 
@@ -2070,6 +2072,44 @@ private fun ColumnScope.SettingsSidebarContent(
             }
             if (hasConfiguredModel && !downloadingModel) {
                 Spacer(modifier = Modifier.height(8.dp))
+                if (canLoadConfiguredModel) {
+                    PlainActionChip(
+                        label = "Load Model",
+                        accentColor = AccentGreen,
+                        onClick = if (!runtimeBusy) {
+                            {
+                                scope.launch {
+                                    runCatching {
+                                        aiRuntimeController.loadConfiguredModel()
+                                    }
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                if (canUnloadConfiguredModel) {
+                    PlainActionChip(
+                        label = "Unload From Memory",
+                        accentColor = AccentAmber,
+                        onClick = if (!runtimeBusy) {
+                            {
+                                scope.launch {
+                                    runCatching {
+                                        aiRuntimeController.unloadModel()
+                                    }
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 PlainActionChip(
                     label = "Remove Model",
                     accentColor = AccentRed,

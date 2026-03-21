@@ -17,15 +17,6 @@ internal enum class AiModelPreset(
         description = "Smaller and lighter. Better fit for weaker devices.",
         repoId = "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
         filename = "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
-    ),
-    QwenCoder3BQ4(
-        storageKey = "qwen_coder_3b_q4_k_m",
-        label = "Qwen2.5 Coder 3B Q4_K_M",
-        shortLabel = "3B Q4",
-        sizeLabel = "2.1 GB",
-        description = "Stronger answers, but heavier on storage and RAM.",
-        repoId = "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
-        filename = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
     );
 
     val downloadUrl: String
