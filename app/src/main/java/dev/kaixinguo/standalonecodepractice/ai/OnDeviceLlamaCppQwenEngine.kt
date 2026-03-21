@@ -4,9 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import com.arm.aichat.AiChat
 import com.arm.aichat.InferenceEngine
+import com.arm.aichat.UnsupportedArchitectureException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -163,8 +165,26 @@ internal class OnDeviceLlamaCppQwenEngine(
                 preset = preset,
                 detail = "${preset.shortLabel} downloaded. Loading into memory."
             )
-            loadConfiguredModelLocked()
+            try {
+                loadConfiguredModelLocked()
+            } catch (throwable: Throwable) {
+                modelLoaded = false
+                _runtimeState.value = errorState(
+                    modelName = downloadedModel.name,
+                    preset = preset,
+                    detail = resolvePostDownloadLoadFailureDetail(
+                        throwable = throwable,
+                        supportedAbis = Build.SUPPORTED_ABIS.toList(),
+                        fingerprint = Build.FINGERPRINT.orEmpty(),
+                        deviceModel = Build.MODEL.orEmpty()
+                    )
+                )
+                throw throwable
+            }
         } catch (throwable: Throwable) {
+            if (currentConfiguredModelPath() != null) {
+                throw throwable
+            }
             modelLoaded = false
             _runtimeState.value = errorState(
                 modelName = preset.filename,
@@ -260,7 +280,12 @@ internal class OnDeviceLlamaCppQwenEngine(
             _runtimeState.value = errorState(
                 modelName = modelName,
                 preset = preset,
-                detail = throwable.message ?: "Model load failed."
+                detail = resolveStoredModelLoadFailureDetail(
+                    throwable = throwable,
+                    supportedAbis = Build.SUPPORTED_ABIS.toList(),
+                    fingerprint = Build.FINGERPRINT.orEmpty(),
+                    deviceModel = Build.MODEL.orEmpty()
+                )
             )
             throw throwable
         }
@@ -560,15 +585,6 @@ internal class OnDeviceLlamaCppQwenEngine(
         }
     }
 
-    private fun resolveDownloadFailureDetail(throwable: Throwable): String {
-        val causeChain = generateSequence(throwable) { it.cause }.toList()
-        if (causeChain.any { it is UnknownHostException }) {
-            return "This device cannot resolve huggingface.co right now. Check the emulator or device internet connection and DNS, then retry."
-        }
-
-        return throwable.message ?: "Model download failed."
-    }
-
     private companion object {
         const val KEY_MODEL_PATH = "ai_model_path"
         const val KEY_MODEL_NAME = "ai_model_name"
@@ -581,4 +597,96 @@ internal class OnDeviceLlamaCppQwenEngine(
         const val DOWNLOAD_CONNECT_TIMEOUT_MILLIS = 15_000
         const val DOWNLOAD_READ_TIMEOUT_MILLIS = 300_000
     }
+}
+
+internal fun resolveDownloadFailureDetail(throwable: Throwable): String {
+    val causeChain = generateSequence(throwable) { it.cause }.toList()
+    if (causeChain.any { it is UnknownHostException }) {
+        return "This device cannot resolve huggingface.co right now. Check the emulator or device internet connection and DNS, then retry."
+    }
+
+    return throwable.message ?: "Model download failed."
+}
+
+internal fun resolveStoredModelLoadFailureDetail(
+    throwable: Throwable,
+    supportedAbis: List<String>,
+    fingerprint: String,
+    deviceModel: String
+): String {
+    val reason = resolveModelLoadFailureReason(
+        throwable = throwable,
+        supportedAbis = supportedAbis,
+        fingerprint = fingerprint,
+        deviceModel = deviceModel
+    )
+    return reason?.replaceFirstChar { firstChar ->
+        if (firstChar.isLowerCase()) {
+            firstChar.titlecase(Locale.US)
+        } else {
+            firstChar.toString()
+        }
+    } ?: (throwable.message ?: "Model load failed.")
+}
+
+internal fun resolvePostDownloadLoadFailureDetail(
+    throwable: Throwable,
+    supportedAbis: List<String>,
+    fingerprint: String,
+    deviceModel: String
+): String {
+    val reason = resolveModelLoadFailureReason(
+        throwable = throwable,
+        supportedAbis = supportedAbis,
+        fingerprint = fingerprint,
+        deviceModel = deviceModel
+    )
+    if (reason != null) {
+        return "The model downloaded successfully, but $reason"
+    }
+
+    val message = throwable.message
+        ?.takeIf { it.isNotBlank() }
+        ?: "loading it into memory failed."
+    return "The model downloaded successfully, but $message"
+}
+
+private fun resolveModelLoadFailureReason(
+    throwable: Throwable,
+    supportedAbis: List<String>,
+    fingerprint: String,
+    deviceModel: String
+): String? {
+    val causeChain = generateSequence(throwable) { it.cause }.toList()
+    if (causeChain.any { it is UnsupportedArchitectureException }) {
+        return if (isProbablyX86Emulator(supportedAbis, fingerprint, deviceModel)) {
+            "this x86_64 emulator could not load the llama.cpp backend. Try a physical arm64 Android device or an arm64 emulator image."
+        } else {
+            "this device could not load the llama.cpp backend for the selected model."
+        }
+    }
+
+    return null
+}
+
+internal fun isProbablyX86Emulator(
+    supportedAbis: List<String>,
+    fingerprint: String,
+    deviceModel: String
+): Boolean {
+    val hasX86Abi = supportedAbis.any { abi ->
+        abi.contains("x86", ignoreCase = true)
+    }
+    val fingerprintLower = fingerprint.lowercase(Locale.US)
+    val modelLower = deviceModel.lowercase(Locale.US)
+    val looksLikeEmulator = listOf(
+        "generic",
+        "emulator",
+        "sdk_gphone",
+        "sdk_gtablet",
+        "ranchu"
+    ).any { marker ->
+        fingerprintLower.contains(marker) || modelLower.contains(marker)
+    }
+    return hasX86Abi && looksLikeEmulator
 }

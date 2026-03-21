@@ -47,7 +47,8 @@ internal class DefaultPromptBuilder : PromptBuilder {
             .map { it.groupValues[1] }
             .toList()
         val hasVisibleRecursion = visibleFunctionNames.any { functionName ->
-            Regex("""\b$functionName\s*\(""").containsMatchIn(
+            val escapedFunctionName = Regex.escape(functionName)
+            Regex("""\b$escapedFunctionName\s*\(""").containsMatchIn(
                 code.substringAfter("def $functionName", missingDelimiterValue = "")
             )
         }

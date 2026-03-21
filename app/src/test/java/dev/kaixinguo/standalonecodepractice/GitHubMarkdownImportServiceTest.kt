@@ -9,6 +9,36 @@ import org.junit.Test
 
 class GitHubMarkdownImportServiceTest {
     @Test
+    fun privateRegexHelpers_treatLabelsAndKeysAsLiterals() {
+        val service = GitHubMarkdownImportService()
+
+        val extractInlineField = GitHubMarkdownImportService::class.java.getDeclaredMethod(
+            "extractInlineField",
+            String::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+        val extractJsonString = GitHubMarkdownImportService::class.java.getDeclaredMethod(
+            "extractJsonString",
+            String::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+
+        val inlineValue = extractInlineField.invoke(
+            service,
+            "Input(1): nums = [1, 2, 3]",
+            "Input(1)"
+        ) as String
+        val jsonValue = extractJsonString.invoke(
+            service,
+            """{"na(me":"value"}""",
+            "na(me"
+        ) as String
+
+        assertEquals("nums = [1, 2, 3]", inlineValue)
+        assertEquals("value", jsonValue)
+    }
+
+    @Test
     fun importsNeetCode150Repo() = runBlocking {
         val folder = GitHubMarkdownImportService()
             .importRepo("https://github.com/dipjul/NeetCode-150")

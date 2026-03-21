@@ -383,12 +383,14 @@ internal class GitHubMarkdownImportService {
     }
 
     private fun extractInlineField(markdown: String, label: String): String {
-        val regex = Regex("""(?im)^\s*$label\s*:\s*(.+)$""")
+        val escapedLabel = Regex.escape(label)
+        val regex = Regex("""(?im)^\s*$escapedLabel\s*:\s*(.+)$""")
         return regex.find(markdown)?.groupValues?.get(1)?.trim().orEmpty()
     }
 
     private fun extractJsonString(json: String, key: String): String {
-        val match = Regex(""""$key"\s*:\s*"((?:\\.|[^"])*)"""").find(json) ?: return ""
+        val escapedKey = Regex.escape(key)
+        val match = Regex(""""$escapedKey"\s*:\s*"((?:\\.|[^"])*)"""").find(json) ?: return ""
         return match.groupValues[1]
             .replace("""\"""", "\"")
             .replace("""\/""", "/")

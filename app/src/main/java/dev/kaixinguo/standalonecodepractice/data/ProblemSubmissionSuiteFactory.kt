@@ -71,7 +71,8 @@ internal object ProblemSubmissionSuiteFactory {
     }
 
     private fun extractLabelValue(source: String, label: String): String {
-        val labelRegex = Regex("""(?im)^\s*$label:\s*""")
+        val escapedLabel = Regex.escape(label)
+        val labelRegex = Regex("""(?im)^\s*$escapedLabel:\s*""")
         val match = labelRegex.find(source) ?: return ""
         val labels = listOf("Input", "Output", "Explanation", "Constraints", "Note")
         val nextLabelRegex = Regex(
