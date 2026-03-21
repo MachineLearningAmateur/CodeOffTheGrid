@@ -56,7 +56,7 @@ class OnDeviceLlamaCppQwenEngineTest {
         )
 
         assertEquals(
-            "This device could not load the llama.cpp backend for the selected model.",
+            "The on-device llama.cpp backend could not load the selected model.",
             detail
         )
     }

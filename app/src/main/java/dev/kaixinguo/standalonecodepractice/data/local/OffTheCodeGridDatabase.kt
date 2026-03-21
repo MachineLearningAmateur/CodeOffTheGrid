@@ -17,13 +17,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     version = 5,
     exportSchema = false
 )
-internal abstract class OffTheGridDatabase : RoomDatabase() {
+internal abstract class OffTheCodeGridDatabase : RoomDatabase() {
     abstract fun workspaceDocumentDao(): WorkspaceDocumentDao
     abstract fun problemCatalogDao(): ProblemCatalogDao
 
     companion object {
         @Volatile
-        private var instance: OffTheGridDatabase? = null
+        private var instance: OffTheCodeGridDatabase? = null
 
         private val migration1To2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
@@ -105,11 +105,11 @@ internal abstract class OffTheGridDatabase : RoomDatabase() {
             }
         }
 
-        fun getInstance(context: Context): OffTheGridDatabase {
+        fun getInstance(context: Context): OffTheCodeGridDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
-                    OffTheGridDatabase::class.java,
+                    OffTheCodeGridDatabase::class.java,
                     "standalone-code-practice.db"
                 )
                     .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5)

@@ -457,7 +457,7 @@ internal class GitHubMarkdownImportService {
             connectTimeout = 15000
             readTimeout = 15000
             setRequestProperty("Accept", "application/vnd.github+json")
-            setRequestProperty("User-Agent", "OffTheGrid")
+            setRequestProperty("User-Agent", "OffTheCodeGrid")
             if (responseCode !in 200..299) {
                 val message = errorStream?.bufferedReader()?.use { it.readText() }
                     ?.takeIf { it.isNotBlank() }

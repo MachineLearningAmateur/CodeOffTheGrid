@@ -31,13 +31,13 @@ enum class AppThemeMode(
 }
 
 @Composable
-fun OffTheGridTheme(
+fun OffTheCodeGridTheme(
     themeMode: AppThemeMode = AppThemeMode.Night,
     content: @Composable () -> Unit
 ) {
-    val offTheGridColors = when (themeMode) {
-        AppThemeMode.Night -> DarkOffTheGridColors
-        AppThemeMode.Light -> LightOffTheGridColors
+    val offTheCodeGridColors = when (themeMode) {
+        AppThemeMode.Night -> DarkOffTheCodeGridColors
+        AppThemeMode.Light -> LightOffTheCodeGridColors
     }
     val accentOnColor = Color(0xFF102038)
     val materialColorScheme = when (themeMode) {
@@ -45,35 +45,35 @@ fun OffTheGridTheme(
             primary = AccentBlue,
             secondary = AccentGreen,
             tertiary = AccentAmber,
-            background = offTheGridColors.appBackground,
-            surface = offTheGridColors.paneBackground,
-            surfaceVariant = offTheGridColors.cardBackground,
+            background = offTheCodeGridColors.appBackground,
+            surface = offTheCodeGridColors.paneBackground,
+            surfaceVariant = offTheCodeGridColors.cardBackground,
             onPrimary = accentOnColor,
             onSecondary = accentOnColor,
             onTertiary = accentOnColor,
-            onBackground = offTheGridColors.textPrimary,
-            onSurface = offTheGridColors.textPrimary,
-            onSurfaceVariant = offTheGridColors.textSecondary,
-            outline = offTheGridColors.cardBorder
+            onBackground = offTheCodeGridColors.textPrimary,
+            onSurface = offTheCodeGridColors.textPrimary,
+            onSurfaceVariant = offTheCodeGridColors.textSecondary,
+            outline = offTheCodeGridColors.cardBorder
         )
         AppThemeMode.Light -> lightColorScheme(
             primary = AccentBlue,
             secondary = AccentGreen,
             tertiary = AccentAmber,
-            background = offTheGridColors.appBackground,
-            surface = offTheGridColors.paneBackground,
-            surfaceVariant = offTheGridColors.cardBackground,
+            background = offTheCodeGridColors.appBackground,
+            surface = offTheCodeGridColors.paneBackground,
+            surfaceVariant = offTheCodeGridColors.cardBackground,
             onPrimary = accentOnColor,
             onSecondary = accentOnColor,
             onTertiary = accentOnColor,
-            onBackground = offTheGridColors.textPrimary,
-            onSurface = offTheGridColors.textPrimary,
-            onSurfaceVariant = offTheGridColors.textSecondary,
-            outline = offTheGridColors.cardBorder
+            onBackground = offTheCodeGridColors.textPrimary,
+            onSurface = offTheCodeGridColors.textPrimary,
+            onSurfaceVariant = offTheCodeGridColors.textSecondary,
+            outline = offTheCodeGridColors.cardBorder
         )
     }
 
-    CompositionLocalProvider(LocalOffTheGridColors provides offTheGridColors) {
+    CompositionLocalProvider(LocalOffTheCodeGridColors provides offTheCodeGridColors) {
         MaterialTheme(
             colorScheme = materialColorScheme,
             typography = Typography,

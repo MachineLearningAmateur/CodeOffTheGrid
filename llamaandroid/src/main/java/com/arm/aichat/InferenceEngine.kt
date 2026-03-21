@@ -16,7 +16,7 @@ interface InferenceEngine {
     /**
      * Load a model from the given path.
      *
-     * @throws UnsupportedArchitectureException if model architecture not supported
+     * @throws UnsupportedArchitectureException if the native backend cannot load the selected model
      */
     suspend fun loadModel(pathToModel: String)
 

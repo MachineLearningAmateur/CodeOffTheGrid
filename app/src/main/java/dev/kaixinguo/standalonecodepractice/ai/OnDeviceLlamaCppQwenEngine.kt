@@ -678,7 +678,7 @@ internal class OnDeviceLlamaCppQwenEngine(
             requestMethod = "GET"
             doInput = true
             setRequestProperty("Accept", "application/octet-stream")
-            setRequestProperty("User-Agent", "OffTheGrid/1.0")
+            setRequestProperty("User-Agent", "OffTheCodeGrid/1.0")
         }
     }
 
@@ -820,7 +820,7 @@ private fun resolveModelLoadFailureReason(
         return if (isProbablyX86Emulator(supportedAbis, fingerprint, deviceModel)) {
             "this x86_64 emulator could not load the llama.cpp backend. Try a physical arm64 Android device or an arm64 emulator image."
         } else {
-            "this device could not load the llama.cpp backend for the selected model."
+            "the on-device llama.cpp backend could not load the selected model."
         }
     }
 

@@ -39,13 +39,19 @@ static llama_batch                        g_batch;
 static common_chat_templates_ptr          g_chat_templates;
 static common_sampler                   * g_sampler;
 
+static size_t backend_count() {
+    return ggml_backend_reg_count();
+}
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_arm_aichat_internal_InferenceEngineImpl_init(JNIEnv *env, jobject /*unused*/, jstring nativeLibDir) {
     // Set llama log handler to Android
     llama_log_set(aichat_android_log_callback, nullptr);
 
-    // Loading all CPU backend variants
+    LOGi("Backend registry count before init: %zu", backend_count());
+
+    // Load dynamic backends when available. In static CPU builds this is a no-op.
     const auto *path_to_backend = env->GetStringUTFChars(nativeLibDir, 0);
     LOGi("Loading backends from %s", path_to_backend);
     ggml_backend_load_all_from_path(path_to_backend);
@@ -53,7 +59,7 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_init(JNIEnv *env, jobject /*unu
 
     // Initialize backends
     llama_backend_init();
-    LOGi("Backend initiated; Log handler set.");
+    LOGi("Backend initiated; Log handler set. Registry count: %zu", backend_count());
 }
 
 extern "C"
