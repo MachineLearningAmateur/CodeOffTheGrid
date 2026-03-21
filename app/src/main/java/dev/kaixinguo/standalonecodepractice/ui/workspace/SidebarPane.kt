@@ -89,6 +89,7 @@ import dev.kaixinguo.standalonecodepractice.ui.theme.TextPrimary
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextSecondary
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 @Composable
@@ -118,6 +119,8 @@ internal fun SidebarPane(
     selectedProblem: ProblemListItem?,
     composerSession: ProblemComposerSession?,
     onComposerSessionChange: (ProblemComposerSession) -> Unit,
+    askAiSessionState: AskAiSessionState,
+    askAiRequestScope: CoroutineScope,
     currentDraftCode: String,
     currentCustomTestSuite: ProblemTestSuite,
     customExecutionResult: ProblemExecutionResult,
@@ -223,6 +226,8 @@ internal fun SidebarPane(
                         selectedProblem = selectedProblem,
                         composerSession = composerSession,
                         onComposerSessionChange = onComposerSessionChange,
+                        sessionState = askAiSessionState,
+                        requestScope = askAiRequestScope,
                         currentDraftCode = currentDraftCode,
                         currentCustomTestSuite = currentCustomTestSuite,
                         customExecutionResult = customExecutionResult,
@@ -1195,6 +1200,8 @@ private fun ColumnScope.AskAiSidebarContent(
     selectedProblem: ProblemListItem?,
     composerSession: ProblemComposerSession?,
     onComposerSessionChange: (ProblemComposerSession) -> Unit,
+    sessionState: AskAiSessionState,
+    requestScope: CoroutineScope,
     currentDraftCode: String,
     currentCustomTestSuite: ProblemTestSuite,
     customExecutionResult: ProblemExecutionResult,
@@ -1203,7 +1210,6 @@ private fun ColumnScope.AskAiSidebarContent(
     onGeneratedCustomTests: (ProblemTestSuite) -> Unit,
     aiRuntimeController: AiRuntimeController
 ) {
-    val scope = rememberCoroutineScope()
     val chatScrollState = rememberScrollState()
     val aiRuntimeState by aiRuntimeController.runtimeState.collectAsState()
     val composerActive = composerSession != null
@@ -1213,14 +1219,12 @@ private fun ColumnScope.AskAiSidebarContent(
     } else {
         PromptMode.entries.filterNot { it == PromptMode.CREATE_PROBLEM }
     }
-    var selectedMode by remember(selectedProblem?.id, composerActive) {
-        mutableStateOf(if (composerActive) PromptMode.CREATE_PROBLEM else PromptMode.HINT)
-    }
-    var promptDraft by remember(selectedProblem?.id, composerActive) { mutableStateOf("") }
-    var messages by remember(selectedProblem?.id, composerActive) { mutableStateOf(listOf<AiChatMessage>()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var activeRequestJob by remember { mutableStateOf<Job?>(null) }
-    var activeRequestMode by remember { mutableStateOf<PromptMode?>(null) }
+    val selectedMode = sessionState.selectedMode
+    val promptDraft = sessionState.promptDraft
+    val messages = sessionState.messages
+    val isLoading = sessionState.isLoading
+    val activeRequestJob = sessionState.activeRequestJob
+    val activeRequestMode = sessionState.activeRequestMode
     val composerStarterCode = remember(composerSession?.draft) {
         composerSession?.draft
             ?.effectiveStarterCode()
@@ -1336,7 +1340,7 @@ private fun ColumnScope.AskAiSidebarContent(
                                     modeMenuExpanded = expanded
                                 }
                             },
-                            onModeSelected = { selectedMode = it },
+                            onModeSelected = { sessionState.selectedMode = it },
                             modifier = Modifier.weight(1f)
                         )
                         PlainActionChip(
@@ -1432,7 +1436,7 @@ private fun ColumnScope.AskAiSidebarContent(
                 if (supportsFreeText) {
                     EditableSupportTextBlock(
                         value = promptDraft,
-                        onValueChange = { promptDraft = it },
+                        onValueChange = { sessionState.promptDraft = it },
                         modifier = Modifier.fillMaxWidth(),
                         minHeight = if (compactLayout) 96.dp else 112.dp,
                         maxHeight = if (compactLayout) 160.dp else 220.dp,
@@ -1458,7 +1462,7 @@ private fun ColumnScope.AskAiSidebarContent(
                                 activeRequestJob?.cancel()
                             }
                         } else if (messages.isNotEmpty()) {
-                            { messages = emptyList() }
+                            { sessionState.messages = emptyList() }
                         } else {
                             null
                         }
@@ -1471,7 +1475,7 @@ private fun ColumnScope.AskAiSidebarContent(
                             {
                                 val activeProblem = selectedProblem ?: run {
                                     if (!composerActive) {
-                                        messages = messages + AiChatMessage(
+                                        sessionState.messages = messages + AiChatMessage(
                                             sender = AiChatSender.System,
                                             mode = selectedMode,
                                             text = "Select a problem first."
@@ -1481,7 +1485,7 @@ private fun ColumnScope.AskAiSidebarContent(
                                     null
                                 }
                                 if (!composerActive && selectedMode == PromptMode.REVIEW_CODE && userWrittenDraftCode == null) {
-                                    messages = messages + AiChatMessage(
+                                    sessionState.messages = messages + AiChatMessage(
                                         sender = AiChatSender.System,
                                         mode = selectedMode,
                                         text = "There is no user-written code in the editor to review yet."
@@ -1506,17 +1510,17 @@ private fun ColumnScope.AskAiSidebarContent(
                                     )
                                 }
                                 val explicitRequest = promptText.takeIf { it.isNotBlank() }
-                                messages = messages + AiChatMessage(
+                                sessionState.messages = messages + AiChatMessage(
                                     sender = AiChatSender.User,
                                     mode = selectedMode,
                                     text = userMessage
                                 )
                                 if (supportsFreeText) {
-                                    promptDraft = ""
+                                    sessionState.promptDraft = ""
                                 }
-                                isLoading = true
-                                activeRequestMode = selectedMode
-                                activeRequestJob = scope.launch {
+                                sessionState.isLoading = true
+                                sessionState.activeRequestMode = selectedMode
+                                sessionState.activeRequestJob = requestScope.launch {
                                     try {
                                         val response = when (selectedMode) {
                                             PromptMode.CREATE_PROBLEM -> {
@@ -1556,29 +1560,29 @@ private fun ColumnScope.AskAiSidebarContent(
                                             }
                                             PromptMode.SOLVE -> aiAssistant.solveProblem(problemPrompt, codeForMode, explicitRequest)
                                         }
-                                        messages = messages + AiChatMessage(
+                                        sessionState.messages = sessionState.messages + AiChatMessage(
                                             sender = AiChatSender.Assistant,
-                                            mode = activeRequestMode ?: selectedMode,
+                                            mode = sessionState.activeRequestMode ?: selectedMode,
                                             text = response.trim()
                                         )
                                     } catch (throwable: Throwable) {
                                         if (throwable is CancellationException) {
-                                            messages = messages + AiChatMessage(
+                                            sessionState.messages = sessionState.messages + AiChatMessage(
                                                 sender = AiChatSender.System,
-                                                mode = activeRequestMode ?: selectedMode,
+                                                mode = sessionState.activeRequestMode ?: selectedMode,
                                                 text = "Request canceled."
                                             )
                                         } else {
-                                        messages = messages + AiChatMessage(
-                                            sender = AiChatSender.System,
-                                            mode = activeRequestMode ?: selectedMode,
-                                            text = throwable.message ?: "Unknown AI runtime error"
-                                        )
-                                    }
+                                            sessionState.messages = sessionState.messages + AiChatMessage(
+                                                sender = AiChatSender.System,
+                                                mode = sessionState.activeRequestMode ?: selectedMode,
+                                                text = throwable.message ?: "Unknown AI runtime error"
+                                            )
+                                        }
                                     } finally {
-                                        activeRequestJob = null
-                                        activeRequestMode = null
-                                        isLoading = false
+                                        sessionState.activeRequestJob = null
+                                        sessionState.activeRequestMode = null
+                                        sessionState.isLoading = false
                                     }
                                 }
                             }
@@ -1922,13 +1926,32 @@ private fun actionButtonLabel(mode: PromptMode, compact: Boolean): String {
     }
 }
 
-private data class AiChatMessage(
+internal data class AiChatMessage(
     val sender: AiChatSender,
     val mode: PromptMode,
     val text: String
 )
 
-private enum class AiChatSender {
+internal class AskAiSessionState {
+    var selectedMode by mutableStateOf(PromptMode.HINT)
+    var promptDraft by mutableStateOf("")
+    var messages by mutableStateOf(listOf<AiChatMessage>())
+    var isLoading by mutableStateOf(false)
+    var activeRequestJob by mutableStateOf<Job?>(null)
+    var activeRequestMode by mutableStateOf<PromptMode?>(null)
+
+    fun reset(composerActive: Boolean) {
+        activeRequestJob?.cancel()
+        activeRequestJob = null
+        activeRequestMode = null
+        isLoading = false
+        selectedMode = if (composerActive) PromptMode.CREATE_PROBLEM else PromptMode.HINT
+        promptDraft = ""
+        messages = emptyList()
+    }
+}
+
+internal enum class AiChatSender {
     User,
     Assistant,
     System

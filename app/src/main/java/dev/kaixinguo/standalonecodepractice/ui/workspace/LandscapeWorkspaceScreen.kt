@@ -59,6 +59,7 @@ internal fun LandscapeWorkspaceScreen(
     var composerSession by remember { mutableStateOf<ProblemComposerSession?>(null) }
     var showDiscardComposerDialog by remember { mutableStateOf(false) }
     var catalogVersion by remember { mutableIntStateOf(0) }
+    val askAiSessionState = remember { AskAiSessionState() }
     val scope = rememberCoroutineScope()
     val sidebarWidth by animateDpAsState(
         targetValue = if (sidebarCollapsed) 84.dp else 288.dp,
@@ -151,6 +152,10 @@ internal fun LandscapeWorkspaceScreen(
         if (effectiveSidebarMode != SidebarMode.AskAi) {
             askAiFullscreen = false
         }
+    }
+
+    LaunchedEffect(selectedProblem?.id, composerSession != null) {
+        askAiSessionState.reset(composerActive = composerSession != null)
     }
 
     Box(
@@ -397,6 +402,8 @@ internal fun LandscapeWorkspaceScreen(
                 selectedProblem = selectedProblem,
                 composerSession = composerSession,
                 onComposerSessionChange = { composerSession = it },
+                askAiSessionState = askAiSessionState,
+                askAiRequestScope = scope,
                 currentDraftCode = currentDraftCode,
                 currentCustomTestSuite = currentCustomTestSuite,
                 customExecutionResult = currentCustomExecutionResult,
