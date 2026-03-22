@@ -8,7 +8,7 @@
       <stop offset="0.45" stop-color="#0C0F17" />
       <stop offset="1" stop-color="#090B11" />
     </linearGradient>
-    <linearGradient id="iconBg" x1="154" y1="122" x2="522" y2="490" gradientUnits="userSpaceOnUse">
+    <linearGradient id="iconBg" x1="154" y1="70" x2="522" y2="438" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#10121A" />
       <stop offset="1" stop-color="#06070B" />
     </linearGradient>
@@ -17,7 +17,7 @@
       <stop offset="0.5" stop-color="#5D7FFF" />
       <stop offset="1" stop-color="#C56EFF" />
     </linearGradient>
-    <filter id="shadow" x="68" y="52" width="548" height="548" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <filter id="shadow" x="68" y="0" width="548" height="548" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
       <feFlood flood-opacity="0" result="BackgroundImageFix" />
       <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
       <feOffset dy="24" />
@@ -32,17 +32,17 @@
   <rect width="1600" height="560" rx="32" fill="url(#bg)" />
   <circle cx="1320" cy="112" r="172" fill="#0D1320" />
   <circle cx="1320" cy="112" r="171" stroke="#1A2233" stroke-width="2" />
-  <circle cx="1490" cy="454" r="124" fill="#0A0D16" />
-  <path d="M0 468C200 430 364 418 572 444C808 473 1042 566 1600 470V560H0V468Z" fill="#080A10" fill-opacity="0.9" />
+  <circle cx="1490" cy="484" r="124" fill="#0A0D16" />
+  <path d="M0 528C206 504 372 496 576 506C818 518 1052 554 1600 522V560H0V528Z" fill="#080A10" fill-opacity="0.9" />
 
   <g filter="url(#shadow)">
-    <rect x="124" y="108" width="428" height="428" rx="106" fill="url(#iconBg)" />
-    <rect x="128" y="112" width="420" height="420" rx="102" stroke="#222736" stroke-width="8" />
+    <rect x="124" y="24" width="428" height="428" rx="106" fill="url(#iconBg)" />
+    <rect x="128" y="28" width="420" height="420" rx="102" stroke="#2E3650" stroke-width="8" />
 
-    <g transform="rotate(-124 338 322)">
+    <g transform="rotate(-124 338 238)">
       <circle
         cx="338"
-        cy="322"
+        cy="238"
         r="120"
         pathLength="100"
         stroke="#71E3FF"
@@ -51,7 +51,7 @@
         stroke-dasharray="26 74" />
       <circle
         cx="338"
-        cy="322"
+        cy="238"
         r="120"
         pathLength="100"
         stroke="#5D7FFF"
@@ -61,7 +61,7 @@
         stroke-dashoffset="-24" />
       <circle
         cx="338"
-        cy="322"
+        cy="238"
         r="120"
         pathLength="100"
         stroke="#C56EFF"
@@ -71,8 +71,8 @@
         stroke-dashoffset="-49" />
     </g>
 
-    <circle cx="338" cy="322" r="146" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="2" />
-    <rect x="164" y="148" width="348" height="348" rx="82" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="2" />
+    <circle cx="338" cy="238" r="146" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="2" />
+    <rect x="164" y="64" width="348" height="348" rx="82" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="2" />
   </g>
 
   <rect x="622" y="132" width="520" height="4" rx="2" fill="url(#accent)" />
@@ -81,15 +81,15 @@
   <text x="622" y="378" fill="#D8E0F0" font-family="'Segoe UI', Arial, sans-serif" font-size="34" font-weight="400">Solve problems, run Python locally, and get on-device AI help.</text>
 
   <g>
-    <rect x="622" y="418" width="164" height="50" rx="25" fill="#121827" stroke="#25304A" stroke-width="2" />
-    <text x="704" y="450" text-anchor="middle" fill="#71E3FF" font-family="'Segoe UI', Arial, sans-serif" font-size="20" font-weight="700">LOCAL AI</text>
+    <rect x="622" y="396" width="164" height="50" rx="25" fill="#121827" stroke="#25304A" stroke-width="2" />
+    <text x="704" y="428" text-anchor="middle" fill="#71E3FF" font-family="'Segoe UI', Arial, sans-serif" font-size="20" font-weight="700">LOCAL AI</text>
   </g>
   <g>
-    <rect x="804" y="418" width="228" height="50" rx="25" fill="#121827" stroke="#25304A" stroke-width="2" />
-    <text x="918" y="450" text-anchor="middle" fill="#5D7FFF" font-family="'Segoe UI', Arial, sans-serif" font-size="20" font-weight="700">PYTHON WORKSPACE</text>
+    <rect x="804" y="396" width="228" height="50" rx="25" fill="#121827" stroke="#25304A" stroke-width="2" />
+    <text x="918" y="428" text-anchor="middle" fill="#5D7FFF" font-family="'Segoe UI', Arial, sans-serif" font-size="20" font-weight="700">PYTHON WORKSPACE</text>
   </g>
   <g>
-    <rect x="1050" y="418" width="230" height="50" rx="25" fill="#121827" stroke="#25304A" stroke-width="2" />
-    <text x="1165" y="450" text-anchor="middle" fill="#C56EFF" font-family="'Segoe UI', Arial, sans-serif" font-size="20" font-weight="700">PROBLEM CATALOG</text>
+    <rect x="1050" y="396" width="230" height="50" rx="25" fill="#121827" stroke="#25304A" stroke-width="2" />
+    <text x="1165" y="428" text-anchor="middle" fill="#C56EFF" font-family="'Segoe UI', Arial, sans-serif" font-size="20" font-weight="700">PROBLEM CATALOG</text>
   </g>
 </svg>

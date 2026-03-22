@@ -1,7 +1,7 @@
 # OffTheCodeGrid
 
 <p align="center">
-  <img src="docs/images/offthecodegrid-readme-banner.png" alt="OffTheCodeGrid banner featuring the app icon and offline-first Android coding practice tagline" width="1000" />
+  <img src="docs/images/offthecodegrid-readme-banner.png" alt="OffTheCodeGrid banner featuring the finalized app icon mark and offline-first Android coding practice tagline" width="1000" />
 </p>
 
 OffTheCodeGrid is an offline-first Android app for practicing interview-style coding problems without depending on a cloud AI service.
