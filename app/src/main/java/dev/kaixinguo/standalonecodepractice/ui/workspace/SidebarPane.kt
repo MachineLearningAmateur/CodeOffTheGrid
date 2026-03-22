@@ -40,7 +40,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,7 +64,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import dev.kaixinguo.standalonecodepractice.R
-import dev.kaixinguo.standalonecodepractice.ai.AiAssistant
 import dev.kaixinguo.standalonecodepractice.ai.AiModelPreset
 import dev.kaixinguo.standalonecodepractice.ai.AiRuntimeController
 import dev.kaixinguo.standalonecodepractice.ai.AiRuntimePhase
@@ -73,6 +71,7 @@ import dev.kaixinguo.standalonecodepractice.ai.AiStoredModel
 import dev.kaixinguo.standalonecodepractice.ai.ProblemPromptFormatter
 import dev.kaixinguo.standalonecodepractice.ai.PromptMode
 import dev.kaixinguo.standalonecodepractice.data.ProblemInputNormalizer
+import dev.kaixinguo.standalonecodepractice.data.SharedProblemFile
 import dev.kaixinguo.standalonecodepractice.data.ProblemSubmissionSuiteFactory
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentAmber
 import dev.kaixinguo.standalonecodepractice.ui.theme.AccentBlue
@@ -87,9 +86,7 @@ import dev.kaixinguo.standalonecodepractice.ui.theme.SidebarBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextMuted
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextPrimary
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextSecondary
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 @Composable
@@ -118,16 +115,11 @@ internal fun SidebarPane(
     onToggleAskAiFullscreen: () -> Unit,
     selectedProblem: ProblemListItem?,
     composerSession: ProblemComposerSession?,
-    onComposerSessionChange: (ProblemComposerSession) -> Unit,
-    askAiSessionState: AskAiSessionState,
-    askAiRequestScope: CoroutineScope,
+    askAiController: AskAiSessionController,
     currentDraftCode: String,
     currentCustomTestSuite: ProblemTestSuite,
     customExecutionResult: ProblemExecutionResult,
     submissionExecutionResult: ProblemExecutionResult,
-    aiAssistant: AiAssistant,
-    onGeneratedCustomTests: (ProblemTestSuite) -> Unit,
-    aiRuntimeController: AiRuntimeController,
     themeMode: AppThemeMode,
     onThemeModeChange: (AppThemeMode) -> Unit,
     modifier: Modifier = Modifier
@@ -225,19 +217,15 @@ internal fun SidebarPane(
                         onToggleFullscreen = onToggleAskAiFullscreen,
                         selectedProblem = selectedProblem,
                         composerSession = composerSession,
-                        onComposerSessionChange = onComposerSessionChange,
-                        sessionState = askAiSessionState,
-                        requestScope = askAiRequestScope,
+                        askAiController = askAiController,
                         currentDraftCode = currentDraftCode,
                         currentCustomTestSuite = currentCustomTestSuite,
                         customExecutionResult = customExecutionResult,
                         submissionExecutionResult = submissionExecutionResult,
-                        aiAssistant = aiAssistant,
-                        onGeneratedCustomTests = onGeneratedCustomTests,
-                        aiRuntimeController = aiRuntimeController
+                        aiRuntimeController = askAiController.aiRuntimeController
                     )
                     SidebarMode.Settings -> SettingsSidebarContent(
-                        aiRuntimeController = aiRuntimeController,
+                        aiRuntimeController = askAiController.aiRuntimeController,
                         themeMode = themeMode,
                         onThemeModeChange = onThemeModeChange
                     )
@@ -1199,21 +1187,17 @@ private fun ColumnScope.AskAiSidebarContent(
     onToggleFullscreen: () -> Unit,
     selectedProblem: ProblemListItem?,
     composerSession: ProblemComposerSession?,
-    onComposerSessionChange: (ProblemComposerSession) -> Unit,
-    sessionState: AskAiSessionState,
-    requestScope: CoroutineScope,
+    askAiController: AskAiSessionController,
     currentDraftCode: String,
     currentCustomTestSuite: ProblemTestSuite,
     customExecutionResult: ProblemExecutionResult,
     submissionExecutionResult: ProblemExecutionResult,
-    aiAssistant: AiAssistant,
-    onGeneratedCustomTests: (ProblemTestSuite) -> Unit,
     aiRuntimeController: AiRuntimeController
 ) {
     val chatScrollState = rememberScrollState()
     val aiRuntimeState by aiRuntimeController.runtimeState.collectAsState()
+    val sessionState = askAiController.sessionState
     val composerActive = composerSession != null
-    val latestComposerSession = rememberUpdatedState(composerSession)
     val availableModes = if (composerActive) {
         listOf(PromptMode.CREATE_PROBLEM)
     } else {
@@ -1223,8 +1207,8 @@ private fun ColumnScope.AskAiSidebarContent(
     val promptDraft = sessionState.promptDraft
     val messages = sessionState.messages
     val isLoading = sessionState.isLoading
-    val activeRequestJob = sessionState.activeRequestJob
     val activeRequestMode = sessionState.activeRequestMode
+    val activeRequestElapsedMillis = askAiController.activeRequestElapsedMillis
     val composerStarterCode = remember(composerSession?.draft) {
         composerSession?.draft
             ?.effectiveStarterCode()
@@ -1411,6 +1395,7 @@ private fun ColumnScope.AskAiSidebarContent(
                                 }
                             ),
                             fullscreen = fullscreen,
+                            statusText = formatActiveRequestElapsed(activeRequestElapsedMillis),
                             loading = true
                         )
                     }
@@ -1458,11 +1443,9 @@ private fun ColumnScope.AskAiSidebarContent(
                         label = if (isLoading) "Cancel" else "Clear Chat",
                         accentColor = if (isLoading) AccentRed else AccentAmber,
                         onClick = if (isLoading) {
-                            {
-                                activeRequestJob?.cancel()
-                            }
+                            { askAiController.cancelActiveRequest() }
                         } else if (messages.isNotEmpty()) {
-                            { sessionState.messages = emptyList() }
+                            { askAiController.clearChat() }
                         } else {
                             null
                         }
@@ -1510,81 +1493,17 @@ private fun ColumnScope.AskAiSidebarContent(
                                     )
                                 }
                                 val explicitRequest = promptText.takeIf { it.isNotBlank() }
-                                sessionState.messages = messages + AiChatMessage(
-                                    sender = AiChatSender.User,
-                                    mode = selectedMode,
-                                    text = userMessage
+                                askAiController.submitRequest(
+                                    AskAiRequest(
+                                        mode = selectedMode,
+                                        problemPrompt = problemPrompt,
+                                        code = codeForMode,
+                                        explicitRequest = explicitRequest,
+                                        userMessage = userMessage,
+                                        clearPromptDraftAfterSubmit = supportsFreeText,
+                                        targetProblemId = activeProblem?.id
+                                    )
                                 )
-                                if (supportsFreeText) {
-                                    sessionState.promptDraft = ""
-                                }
-                                sessionState.isLoading = true
-                                sessionState.activeRequestMode = selectedMode
-                                sessionState.activeRequestJob = requestScope.launch {
-                                    try {
-                                        val response = when (selectedMode) {
-                                            PromptMode.CREATE_PROBLEM -> {
-                                                val generatedProblem = aiAssistant.createProblem(
-                                                    problem = problemPrompt,
-                                                    code = codeForMode,
-                                                    request = explicitRequest
-                                                )
-                                                val currentSession = latestComposerSession.value
-                                                    ?: error("Problem composer is no longer open.")
-                                                val updatedDraft = currentSession.draft.withGeneratedProblem(generatedProblem)
-                                                onComposerSessionChange(
-                                                    currentSession.copy(
-                                                        draft = updatedDraft,
-                                                        errorMessage = null
-                                                    )
-                                                )
-                                                buildGeneratedProblemDraftSummary(
-                                                    previousDraft = currentSession.draft,
-                                                    updatedDraft = updatedDraft
-                                                )
-                                            }
-                                            PromptMode.HINT -> aiAssistant.generateHint(problemPrompt, codeForMode, explicitRequest)
-                                            PromptMode.EXPLAIN -> aiAssistant.explainSolution(problemPrompt, codeForMode, explicitRequest)
-                                            PromptMode.REVIEW_CODE -> aiAssistant.reviewCode(problemPrompt, codeForMode, explicitRequest)
-                                            PromptMode.TEST_CASES -> {
-                                                val generatedSuite = aiAssistant.generateCustomTests(
-                                                    problem = problemPrompt,
-                                                    code = null,
-                                                    request = explicitRequest
-                                                )
-                                                onGeneratedCustomTests(generatedSuite)
-                                                buildString {
-                                                    append("Imported ${generatedSuite.cases.size} custom cases into the Custom tab.\n\n")
-                                                    append(formatGeneratedTestSuiteSummary(generatedSuite))
-                                                }
-                                            }
-                                            PromptMode.SOLVE -> aiAssistant.solveProblem(problemPrompt, codeForMode, explicitRequest)
-                                        }
-                                        sessionState.messages = sessionState.messages + AiChatMessage(
-                                            sender = AiChatSender.Assistant,
-                                            mode = sessionState.activeRequestMode ?: selectedMode,
-                                            text = response.trim()
-                                        )
-                                    } catch (throwable: Throwable) {
-                                        if (throwable is CancellationException) {
-                                            sessionState.messages = sessionState.messages + AiChatMessage(
-                                                sender = AiChatSender.System,
-                                                mode = sessionState.activeRequestMode ?: selectedMode,
-                                                text = "Request canceled."
-                                            )
-                                        } else {
-                                            sessionState.messages = sessionState.messages + AiChatMessage(
-                                                sender = AiChatSender.System,
-                                                mode = sessionState.activeRequestMode ?: selectedMode,
-                                                text = throwable.message ?: "Unknown AI runtime error"
-                                            )
-                                        }
-                                    } finally {
-                                        sessionState.activeRequestJob = null
-                                        sessionState.activeRequestMode = null
-                                        sessionState.isLoading = false
-                                    }
-                                }
                             }
                         } else {
                             null
@@ -1671,6 +1590,7 @@ private fun AiModeSelectorChip(
 private fun AiChatBubble(
     message: AiChatMessage,
     fullscreen: Boolean,
+    statusText: String? = null,
     loading: Boolean = false
 ) {
     val bubbleColor = when (message.sender) {
@@ -1694,10 +1614,18 @@ private fun AiChatBubble(
         horizontalAlignment = if (message.sender == AiChatSender.User) Alignment.End else Alignment.Start
     ) {
         Text(
-            text = when (message.sender) {
-                AiChatSender.User -> "${message.mode.label} request"
-                AiChatSender.Assistant -> "${message.mode.label} reply"
-                AiChatSender.System -> "System"
+            text = buildString {
+                append(
+                    when (message.sender) {
+                        AiChatSender.User -> "${message.mode.label} request"
+                        AiChatSender.Assistant -> "${message.mode.label} reply"
+                        AiChatSender.System -> "System"
+                    }
+                )
+                if (!statusText.isNullOrBlank()) {
+                    append(" • ")
+                    append(statusText)
+                }
             },
             color = labelColor,
             style = MaterialTheme.typography.labelSmall
@@ -1741,7 +1669,7 @@ private fun AiChatBubble(
     }
 }
 
-private fun formatGeneratedTestSuiteSummary(testSuite: ProblemTestSuite): String {
+internal fun formatGeneratedTestSuiteSummary(testSuite: ProblemTestSuite): String {
     return testSuite.cases.joinToString(separator = "\n\n") { testCase ->
         buildString {
             append(testCase.label)
@@ -1797,7 +1725,7 @@ private fun buildAiComposerContext(
     return "$modelLine\n\n$composerContext"
 }
 
-private fun buildGeneratedProblemDraftSummary(
+internal fun buildGeneratedProblemDraftSummary(
     previousDraft: ProblemComposerDraft,
     updatedDraft: ProblemComposerDraft
 ): String {
@@ -1818,6 +1746,21 @@ private fun buildGeneratedProblemDraftSummary(
         "The AI draft parsed successfully, but it did not change any composer fields."
     } else {
         "Updated composer fields: ${changedFields.joinToString(", ")}."
+    }
+}
+
+internal fun buildGeneratedProblemResultSummary(problem: SharedProblemFile): String {
+    val title = problem.title.trim().ifBlank { "Untitled Problem" }
+    val difficulty = problem.difficulty.trim().ifBlank { "Unspecified" }
+    return "Generated \"$title\" ($difficulty), but the composer was closed before the result could be applied."
+}
+
+internal fun formatActiveRequestElapsed(elapsedMillis: Long): String? {
+    val elapsedSeconds = (elapsedMillis / 1_000L).coerceAtLeast(0L)
+    return when {
+        elapsedMillis <= 0L -> null
+        elapsedSeconds < 60L -> "${elapsedSeconds}s"
+        else -> "${elapsedSeconds / 60L}m ${elapsedSeconds % 60L}s"
     }
 }
 
@@ -1940,14 +1883,12 @@ internal class AskAiSessionState {
     var activeRequestJob by mutableStateOf<Job?>(null)
     var activeRequestMode by mutableStateOf<PromptMode?>(null)
 
-    fun reset(composerActive: Boolean) {
-        activeRequestJob?.cancel()
-        activeRequestJob = null
-        activeRequestMode = null
-        isLoading = false
-        selectedMode = if (composerActive) PromptMode.CREATE_PROBLEM else PromptMode.HINT
-        promptDraft = ""
-        messages = emptyList()
+    fun syncContext(composerActive: Boolean) {
+        selectedMode = when {
+            composerActive -> PromptMode.CREATE_PROBLEM
+            selectedMode == PromptMode.CREATE_PROBLEM -> PromptMode.HINT
+            else -> selectedMode
+        }
     }
 }
 

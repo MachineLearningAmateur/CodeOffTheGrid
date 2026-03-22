@@ -9,11 +9,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.kaixinguo.standalonecodepractice.ai.AiAssistant
 import dev.kaixinguo.standalonecodepractice.ai.AiRuntimeController
 import dev.kaixinguo.standalonecodepractice.ai.AiRuntimePhase
 import dev.kaixinguo.standalonecodepractice.ai.AiRuntimeState
@@ -33,8 +33,7 @@ internal fun LandscapeWorkspaceScreen(
     problemCatalogRepository: ProblemCatalogRepository,
     workspaceDocumentRepository: WorkspaceDocumentRepository,
     localPythonExecutionService: LocalPythonExecutionService,
-    aiAssistant: AiAssistant,
-    aiRuntimeController: AiRuntimeController,
+    askAiController: AskAiSessionController,
     seedCatalogProvider: suspend () -> List<ProblemFolderState>,
     themeMode: AppThemeMode,
     onThemeModeChange: (AppThemeMode) -> Unit,
@@ -44,22 +43,21 @@ internal fun LandscapeWorkspaceScreen(
     var protectedFolderIds by remember { mutableStateOf(emptySet<String>()) }
     var protectedSetIds by remember { mutableStateOf(emptySet<String>()) }
     var protectedProblemIds by remember { mutableStateOf(emptySet<String>()) }
-    var selectedProblemId by remember { mutableStateOf("") }
-    var selectedProblemSetId by remember { mutableStateOf("") }
-    var sidebarMode by remember { mutableStateOf(SidebarMode.Problems) }
-    var sidebarCollapsed by remember { mutableStateOf(false) }
-    var askAiFullscreen by remember { mutableStateOf(false) }
-    var workspaceInputMode by remember { mutableStateOf(WorkspaceInputMode.Keyboard) }
+    var selectedProblemId by rememberSaveable { mutableStateOf("") }
+    var selectedProblemSetId by rememberSaveable { mutableStateOf("") }
+    var sidebarMode by rememberSaveable { mutableStateOf(SidebarMode.Problems) }
+    var sidebarCollapsed by rememberSaveable { mutableStateOf(false) }
+    var askAiFullscreen by rememberSaveable { mutableStateOf(false) }
+    var workspaceInputMode by rememberSaveable { mutableStateOf(WorkspaceInputMode.Keyboard) }
     val sketchStrokes = remember { mutableStateListOf<SketchStroke>() }
     var currentDraftCode by remember { mutableStateOf("") }
     var currentCustomTestSuite by remember { mutableStateOf(ProblemTestSuite()) }
     var currentCustomExecutionResult by remember { mutableStateOf(defaultExecutionResult(ExecutionTarget.Custom)) }
     var currentSubmissionExecutionResult by remember { mutableStateOf(defaultExecutionResult(ExecutionTarget.LocalSubmission)) }
-    var selectedSupportTab by remember { mutableStateOf(SupportTab.Problem) }
+    var selectedSupportTab by rememberSaveable { mutableStateOf(SupportTab.Problem) }
     var composerSession by remember { mutableStateOf<ProblemComposerSession?>(null) }
     var showDiscardComposerDialog by remember { mutableStateOf(false) }
     var catalogVersion by remember { mutableIntStateOf(0) }
-    val askAiSessionState = remember { AskAiSessionState() }
     val scope = rememberCoroutineScope()
     val sidebarWidth by animateDpAsState(
         targetValue = if (sidebarCollapsed) 84.dp else 288.dp,
@@ -121,7 +119,11 @@ internal fun LandscapeWorkspaceScreen(
         }
         folders.clear()
         folders.addAll(resolvedFolders)
-        val (initialSetId, initialProblemId) = resolveSelection(resolvedFolders)
+        val (initialSetId, initialProblemId) = resolveSelection(
+            folders = resolvedFolders,
+            preferredSetId = selectedProblemSetId,
+            preferredProblemId = selectedProblemId
+        )
         selectedProblemSetId = initialSetId
         selectedProblemId = initialProblemId
     }
@@ -154,8 +156,8 @@ internal fun LandscapeWorkspaceScreen(
         }
     }
 
-    LaunchedEffect(selectedProblem?.id, composerSession != null) {
-        askAiSessionState.reset(composerActive = composerSession != null)
+    LaunchedEffect(composerSession != null) {
+        askAiController.syncContext(composerActive = composerSession != null)
     }
 
     Box(
@@ -234,6 +236,65 @@ internal fun LandscapeWorkspaceScreen(
             updateActiveProblemSelection(folders, selectedProblemSetId, selectedProblemId)
             persistCatalogSnapshot()
             composerSession = null
+        }
+
+        LaunchedEffect(askAiController.pendingSideEffect) {
+            when (val pendingSideEffect = askAiController.pendingSideEffect) {
+                is AskAiPendingSideEffect.GeneratedCustomTests -> {
+                    val activeProblem = selectedProblem
+                    if (activeProblem != null && activeProblem.id == pendingSideEffect.problemId) {
+                        val mergedSuite = mergeCustomTestSuites(
+                            existingSuite = currentCustomTestSuite,
+                            generatedSuite = pendingSideEffect.generatedSuite
+                        )
+                        currentCustomTestSuite = mergedSuite
+                        selectedSupportTab = SupportTab.Custom
+                        persistWorkspaceDocument(
+                            problemId = activeProblem.id,
+                            draftCode = currentDraftCode,
+                            customTestSuite = mergedSuite,
+                            sketches = sketchStrokes.toList()
+                        )
+                        askAiController.completePendingSideEffect(
+                            sender = AiChatSender.Assistant,
+                            message = buildString {
+                                append("Imported ${pendingSideEffect.generatedSuite.cases.size} custom cases into the Custom tab.\n\n")
+                                append(formatGeneratedTestSuiteSummary(pendingSideEffect.generatedSuite))
+                            }
+                        )
+                    } else {
+                        askAiController.completePendingSideEffect(
+                            sender = AiChatSender.System,
+                            message = "Generated ${pendingSideEffect.generatedSuite.cases.size} custom cases, but the active problem changed before they could be imported."
+                        )
+                    }
+                }
+
+                is AskAiPendingSideEffect.GeneratedProblem -> {
+                    val currentSession = composerSession
+                    if (currentSession != null) {
+                        val updatedDraft = currentSession.draft.withGeneratedProblem(pendingSideEffect.generatedProblem)
+                        composerSession = currentSession.copy(
+                            draft = updatedDraft,
+                            errorMessage = null
+                        )
+                        askAiController.completePendingSideEffect(
+                            sender = AiChatSender.Assistant,
+                            message = buildGeneratedProblemDraftSummary(
+                                previousDraft = currentSession.draft,
+                                updatedDraft = updatedDraft
+                            )
+                        )
+                    } else {
+                        askAiController.completePendingSideEffect(
+                            sender = AiChatSender.System,
+                            message = buildGeneratedProblemResultSummary(pendingSideEffect.generatedProblem)
+                        )
+                    }
+                }
+
+                null -> Unit
+            }
         }
 
         Row(
@@ -401,30 +462,11 @@ internal fun LandscapeWorkspaceScreen(
                 },
                 selectedProblem = selectedProblem,
                 composerSession = composerSession,
-                onComposerSessionChange = { composerSession = it },
-                askAiSessionState = askAiSessionState,
-                askAiRequestScope = scope,
+                askAiController = askAiController,
                 currentDraftCode = currentDraftCode,
                 currentCustomTestSuite = currentCustomTestSuite,
                 customExecutionResult = currentCustomExecutionResult,
                 submissionExecutionResult = currentSubmissionExecutionResult,
-                aiAssistant = aiAssistant,
-                onGeneratedCustomTests = { generatedSuite ->
-                    val activeProblem = selectedProblem ?: return@SidebarPane
-                    val mergedSuite = mergeCustomTestSuites(
-                        existingSuite = currentCustomTestSuite,
-                        generatedSuite = generatedSuite
-                    )
-                    currentCustomTestSuite = mergedSuite
-                    selectedSupportTab = SupportTab.Custom
-                    persistWorkspaceDocument(
-                        problemId = activeProblem.id,
-                        draftCode = currentDraftCode,
-                        customTestSuite = mergedSuite,
-                        sketches = sketchStrokes.toList()
-                    )
-                },
-                aiRuntimeController = aiRuntimeController,
                 themeMode = themeMode,
                 onThemeModeChange = onThemeModeChange,
                 modifier = Modifier
@@ -918,8 +960,17 @@ private fun previewCatalog(): List<ProblemFolderState> {
     )
 }
 
-private fun resolveSelection(folders: List<ProblemFolderState>): Pair<String, String> {
+private fun resolveSelection(
+    folders: List<ProblemFolderState>,
+    preferredSetId: String = "",
+    preferredProblemId: String = ""
+): Pair<String, String> {
     val allSets = folders.flatMap { it.sets }
+    val preferredSet = allSets.firstOrNull { it.id == preferredSetId }
+    val preferredProblem = preferredSet?.problems?.firstOrNull { it.id == preferredProblemId }
+    if (preferredSet != null && preferredProblem != null) {
+        return preferredSet.id to preferredProblem.id
+    }
     val selectedSetId = allSets
         .firstOrNull { set -> set.problems.any { it.active } }
         ?.id
@@ -985,6 +1036,39 @@ private fun List<ProblemFolderState>.deepCopy(): List<ProblemFolderState> {
 @Composable
 private fun LandscapeWorkspacePreview() {
     OffTheCodeGridTheme {
+        val previewRuntimeController = object : AiRuntimeController {
+            override val runtimeState = kotlinx.coroutines.flow.MutableStateFlow(
+                AiRuntimeState(
+                    phase = AiRuntimePhase.Ready,
+                    preset = null,
+                    currentModelPath = "/data/user/0/dev.kaixinguo.standalonecodepractice/files/ai-models/preview.gguf",
+                    modelName = "preview.gguf",
+                    installedModels = listOf(
+                        dev.kaixinguo.standalonecodepractice.ai.AiStoredModel(
+                            path = "/data/user/0/dev.kaixinguo.standalonecodepractice/files/ai-models/preview.gguf",
+                            name = "preview.gguf",
+                            preset = null
+                        )
+                    ),
+                    detail = "Preview runtime."
+                )
+            )
+
+            override suspend fun importModel(uri: android.net.Uri) = Unit
+
+            override suspend fun downloadPresetModel(preset: dev.kaixinguo.standalonecodepractice.ai.AiModelPreset) = Unit
+
+            override suspend fun selectStoredModel(path: String) = Unit
+
+            override suspend fun loadConfiguredModel() = Unit
+
+            override suspend fun unloadModel() = Unit
+
+            override suspend fun removeConfiguredModel() = Unit
+
+            override fun destroy() = Unit
+        }
+
         LandscapeWorkspaceScreen(
             problemCatalogRepository = ProblemCatalogRepository(
                 problemCatalogDao = object : dev.kaixinguo.standalonecodepractice.data.local.ProblemCatalogDao {
@@ -1006,57 +1090,21 @@ private fun LandscapeWorkspacePreview() {
                 }
             ),
             localPythonExecutionService = LocalPythonExecutionService(androidx.compose.ui.platform.LocalContext.current),
-            aiAssistant = object : AiAssistant {
-                override suspend fun createProblem(problem: String, code: String?, request: String?) =
-                    dev.kaixinguo.standalonecodepractice.data.SharedProblemFile(
-                        title = "Preview Problem",
-                        difficulty = "Easy",
-                        summary = "Generated by preview.gguf as an array problem.",
-                        statementMarkdown = "Write a preview problem statement.",
-                        exampleInput = "nums = [1, 2, 3]",
-                        exampleOutput = "6",
-                        starterCode = "class Solution:\n    def solve(self, nums):\n        pass",
-                        hints = listOf("Look for the simplest aggregation."),
-                        submissionTestSuite = null,
-                        executionPipeline = null
-                    )
-                override suspend fun generateHint(problem: String, code: String?, request: String?) = "Hint preview"
-                override suspend fun explainSolution(problem: String, code: String?, request: String?) = "Explain preview"
-                override suspend fun reviewCode(problem: String, code: String?, request: String?) = "Review preview"
-                override suspend fun generateCustomTests(problem: String, code: String?, request: String?) = ProblemTestSuite()
-                override suspend fun solveProblem(problem: String, code: String?, request: String?) = "Solve preview"
-            },
-            aiRuntimeController = object : AiRuntimeController {
-                override val runtimeState = kotlinx.coroutines.flow.MutableStateFlow(
-                    AiRuntimeState(
-                        phase = AiRuntimePhase.Ready,
-                        preset = null,
-                        currentModelPath = "/data/user/0/dev.kaixinguo.standalonecodepractice/files/ai-models/preview.gguf",
-                        modelName = "preview.gguf",
-                        installedModels = listOf(
-                            dev.kaixinguo.standalonecodepractice.ai.AiStoredModel(
-                                path = "/data/user/0/dev.kaixinguo.standalonecodepractice/files/ai-models/preview.gguf",
-                                name = "preview.gguf",
-                                preset = null
-                            )
-                        ),
-                        detail = "Preview runtime."
-                    )
-                )
+            askAiController = object : AskAiSessionController {
+                override val sessionState = AskAiSessionState()
+                override val aiRuntimeController: AiRuntimeController = previewRuntimeController
+                override val activeRequestElapsedMillis: Long = 0L
+                override val pendingSideEffect: AskAiPendingSideEffect? = null
 
-                override suspend fun importModel(uri: android.net.Uri) = Unit
+                override fun syncContext(composerActive: Boolean) = Unit
 
-                override suspend fun downloadPresetModel(preset: dev.kaixinguo.standalonecodepractice.ai.AiModelPreset) = Unit
+                override fun submitRequest(request: AskAiRequest) = Unit
 
-                override suspend fun selectStoredModel(path: String) = Unit
+                override fun cancelActiveRequest() = Unit
 
-                override suspend fun loadConfiguredModel() = Unit
+                override fun clearChat() = Unit
 
-                override suspend fun unloadModel() = Unit
-
-                override suspend fun removeConfiguredModel() = Unit
-
-                override fun destroy() = Unit
+                override fun completePendingSideEffect(sender: AiChatSender, message: String) = Unit
             },
             seedCatalogProvider = { previewCatalog() },
             themeMode = AppThemeMode.Night,

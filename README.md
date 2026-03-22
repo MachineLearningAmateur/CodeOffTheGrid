@@ -1,5 +1,9 @@
 # OffTheCodeGrid
 
+<p align="center">
+  <img src="docs/images/offthecodegrid-readme-banner.png" alt="OffTheCodeGrid banner featuring the app icon and offline-first Android coding practice tagline" width="1000" />
+</p>
+
 OffTheCodeGrid is an offline-first Android app for practicing interview-style coding problems without depending on a cloud AI service.
 
 It combines a three-pane coding workspace, local Python execution, a built-in problem catalog, and an on-device GGUF-backed AI assistant so users can read problems, write code, test ideas, and get help directly on the device.

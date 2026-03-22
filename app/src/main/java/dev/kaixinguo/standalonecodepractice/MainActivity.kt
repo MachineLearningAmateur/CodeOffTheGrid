@@ -4,13 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.kaixinguo.standalonecodepractice.ai.DefaultAiAssistant
-import dev.kaixinguo.standalonecodepractice.ai.DefaultPromptBuilder
-import dev.kaixinguo.standalonecodepractice.ai.OnDeviceLlamaCppQwenEngine
 import dev.kaixinguo.standalonecodepractice.data.BundledProblemCatalogLoader
 import dev.kaixinguo.standalonecodepractice.data.LocalPythonExecutionService
 import dev.kaixinguo.standalonecodepractice.data.ProblemCatalogRepository
@@ -18,6 +16,7 @@ import dev.kaixinguo.standalonecodepractice.data.WorkspaceDocumentRepository
 import dev.kaixinguo.standalonecodepractice.data.local.OffTheCodeGridDatabase
 import dev.kaixinguo.standalonecodepractice.ui.theme.AppThemeMode
 import dev.kaixinguo.standalonecodepractice.ui.theme.OffTheCodeGridTheme
+import dev.kaixinguo.standalonecodepractice.ui.workspace.AskAiViewModel
 import dev.kaixinguo.standalonecodepractice.ui.workspace.LandscapeWorkspaceScreen
 
 class MainActivity : ComponentActivity() {
@@ -43,18 +42,8 @@ class MainActivity : ComponentActivity() {
         LocalPythonExecutionService(applicationContext)
     }
 
-    private val aiRuntimeController by lazy {
-        OnDeviceLlamaCppQwenEngine(
-            context = applicationContext,
-            sharedPreferences = getSharedPreferences(APP_SETTINGS_PREFS, MODE_PRIVATE)
-        )
-    }
-
-    private val aiAssistant by lazy {
-        DefaultAiAssistant(
-            promptBuilder = DefaultPromptBuilder(),
-            localQwenEngine = aiRuntimeController
-        )
+    private val askAiViewModel by lazy {
+        ViewModelProvider(this)[AskAiViewModel::class.java]
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,8 +66,7 @@ class MainActivity : ComponentActivity() {
                     problemCatalogRepository = problemCatalogRepository,
                     workspaceDocumentRepository = workspaceDocumentRepository,
                     localPythonExecutionService = localPythonExecutionService,
-                    aiAssistant = aiAssistant,
-                    aiRuntimeController = aiRuntimeController,
+                    askAiController = askAiViewModel,
                     seedCatalogProvider = { bundledProblemCatalogLoader.loadCatalog() },
                     themeMode = themeMode,
                     onThemeModeChange = { selectedMode ->
@@ -90,11 +78,6 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-    }
-
-    override fun onDestroy() {
-        aiRuntimeController.destroy()
-        super.onDestroy()
     }
 
     private companion object {
