@@ -29,6 +29,7 @@
     </filter>
   </defs>
 
+  <rect width="1600" height="560" fill="#080A10" />
   <rect width="1600" height="560" rx="32" fill="url(#bg)" />
   <circle cx="1320" cy="112" r="172" fill="#0D1320" />
   <circle cx="1320" cy="112" r="171" stroke="#1A2233" stroke-width="2" />
