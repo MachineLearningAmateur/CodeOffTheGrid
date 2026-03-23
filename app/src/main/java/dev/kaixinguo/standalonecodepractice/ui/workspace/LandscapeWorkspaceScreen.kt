@@ -23,7 +23,7 @@ import dev.kaixinguo.standalonecodepractice.data.WorkspaceDocumentRepository
 import dev.kaixinguo.standalonecodepractice.ui.theme.AppBackground
 import dev.kaixinguo.standalonecodepractice.ui.theme.AppThemeMode
 import dev.kaixinguo.standalonecodepractice.ui.theme.SidebarBackground
-import dev.kaixinguo.standalonecodepractice.ui.theme.OffTheCodeGridTheme
+import dev.kaixinguo.standalonecodepractice.ui.theme.CodeOffTheGridTheme
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextPrimary
 import dev.kaixinguo.standalonecodepractice.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
@@ -1035,7 +1035,7 @@ private fun List<ProblemFolderState>.deepCopy(): List<ProblemFolderState> {
 @Preview(widthDp = 1280, heightDp = 800, showBackground = true)
 @Composable
 private fun LandscapeWorkspacePreview() {
-    OffTheCodeGridTheme {
+    CodeOffTheGridTheme {
         val previewRuntimeController = object : AiRuntimeController {
             override val runtimeState = kotlinx.coroutines.flow.MutableStateFlow(
                 AiRuntimeState(

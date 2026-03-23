@@ -1,10 +1,10 @@
-# OffTheCodeGrid
+# CodeOffTheGrid
 
 <p align="center">
-  <img src="docs/images/offthecodegrid-readme-banner.png" alt="OffTheCodeGrid banner featuring the finalized app icon mark and offline-first Android coding practice tagline" width="1000" />
+  <img src="docs/images/codeoffthegrid-readme-banner.png" alt="CodeOffTheGrid banner featuring the finalized app icon mark and offline-first Android coding practice tagline" width="1000" />
 </p>
 
-OffTheCodeGrid is an offline-first Android app for practicing interview-style coding problems without depending on a cloud AI service.
+CodeOffTheGrid is an offline-first Android app for practicing interview-style coding problems without depending on a cloud AI service.
 
 It combines a three-pane coding workspace, local Python execution, a built-in problem catalog, and an on-device GGUF-backed AI assistant so users can read problems, write code, test ideas, and get help directly on the device.
 
@@ -12,15 +12,15 @@ It combines a three-pane coding workspace, local Python execution, a built-in pr
 
 ### Workspace
 
-<img src="docs/images/offthecodegrid-workspace.png" alt="OffTheCodeGrid workspace with problem list, code editor, and problem details" width="1000" />
+<img src="docs/images/codeoffthegrid-workspace.png" alt="CodeOffTheGrid workspace with problem list, code editor, and problem details" width="1000" />
 
 ### Ask AI
 
-<img src="docs/images/offthecodegrid-ask-ai.png" alt="OffTheCodeGrid Ask AI hint mode alongside the workspace" width="1000" />
+<img src="docs/images/codeoffthegrid-ask-ai.png" alt="CodeOffTheGrid Ask AI hint mode alongside the workspace" width="1000" />
 
 ### Settings and Models
 
-<img src="docs/images/offthecodegrid-settings.png" alt="OffTheCodeGrid settings showing theme controls and on-device model management" width="1000" />
+<img src="docs/images/codeoffthegrid-settings.png" alt="CodeOffTheGrid settings showing theme controls and on-device model management" width="1000" />
 
 ## Purpose
 

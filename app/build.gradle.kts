@@ -14,7 +14,7 @@ if (keystorePropertiesFile.exists()) {
 }
 val appVersionCode = 3
 val appVersionName = "1.0.1"
-val releaseArtifactBaseName = "OffTheCodeGrid"
+val releaseArtifactBaseName = "CodeOffTheGrid"
 
 android {
     namespace = "dev.kaixinguo.standalonecodepractice"

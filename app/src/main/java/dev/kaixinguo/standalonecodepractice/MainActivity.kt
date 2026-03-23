@@ -13,15 +13,15 @@ import dev.kaixinguo.standalonecodepractice.data.BundledProblemCatalogLoader
 import dev.kaixinguo.standalonecodepractice.data.LocalPythonExecutionService
 import dev.kaixinguo.standalonecodepractice.data.ProblemCatalogRepository
 import dev.kaixinguo.standalonecodepractice.data.WorkspaceDocumentRepository
-import dev.kaixinguo.standalonecodepractice.data.local.OffTheCodeGridDatabase
+import dev.kaixinguo.standalonecodepractice.data.local.CodeOffTheGridDatabase
 import dev.kaixinguo.standalonecodepractice.ui.theme.AppThemeMode
-import dev.kaixinguo.standalonecodepractice.ui.theme.OffTheCodeGridTheme
+import dev.kaixinguo.standalonecodepractice.ui.theme.CodeOffTheGridTheme
 import dev.kaixinguo.standalonecodepractice.ui.workspace.AskAiViewModel
 import dev.kaixinguo.standalonecodepractice.ui.workspace.LandscapeWorkspaceScreen
 
 class MainActivity : ComponentActivity() {
     private val database by lazy {
-        OffTheCodeGridDatabase.getInstance(applicationContext)
+        CodeOffTheGridDatabase.getInstance(applicationContext)
     }
 
     private val problemCatalogRepository by lazy {
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            OffTheCodeGridTheme(themeMode = themeMode) {
+            CodeOffTheGridTheme(themeMode = themeMode) {
                 LandscapeWorkspaceScreen(
                     problemCatalogRepository = problemCatalogRepository,
                     workspaceDocumentRepository = workspaceDocumentRepository,

@@ -678,7 +678,7 @@ internal class OnDeviceLlamaCppQwenEngine(
             requestMethod = "GET"
             doInput = true
             setRequestProperty("Accept", "application/octet-stream")
-            setRequestProperty("User-Agent", "OffTheCodeGrid/1.0")
+            setRequestProperty("User-Agent", "CodeOffTheGrid/1.0")
         }
     }
 
