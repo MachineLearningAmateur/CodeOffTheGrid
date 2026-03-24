@@ -328,8 +328,70 @@ internal fun normalizeRecognizedCodeLine(text: String): String {
         .replace("\u2019", "'")
         .replace("\u2013", "-")
         .replace("\u2014", "-")
+        .normalizeLikelyMisreadPythonBlockColon()
+        .normalizePythonOperatorSpacing()
         .replace(Regex("[ ]{2,}"), " ")
         .trim()
+}
+
+private fun String.normalizeLikelyMisreadPythonBlockColon(): String {
+    val leadingWhitespace = takeWhile(Char::isWhitespace)
+    val trimmed = trim()
+    if (!trimmed.startsWithPythonBlockKeyword() || ':' in trimmed) {
+        return this
+    }
+
+    val inlineBodyMatch = Regex("""^(.+?)(?<![!<>=])\s+[78]\s+(.+)$""").matchEntire(trimmed)
+    if (inlineBodyMatch != null) {
+        val headerPrefix = inlineBodyMatch.groupValues[1].trimEnd()
+        if (headerPrefix.isLikelyPythonBlockHeaderPrefix()) {
+            val body = inlineBodyMatch.groupValues[2].trimStart()
+            return "$leadingWhitespace$headerPrefix: $body"
+        }
+    }
+
+    val lineEndMatch = Regex("""^(.+?)(?<![!<>=])\s+[78]$""").matchEntire(trimmed)
+    if (lineEndMatch != null) {
+        val headerPrefix = lineEndMatch.groupValues[1].trimEnd()
+        if (headerPrefix.isLikelyPythonBlockHeaderPrefix()) {
+            return "$leadingWhitespace$headerPrefix:"
+        }
+    }
+
+    return this
+}
+
+private fun String.normalizePythonOperatorSpacing(): String {
+    return this
+        .replace(Regex("""!\s*="""), "!=")
+        .replace(Regex("""=\s*="""), "==")
+        .replace(Regex("""<\s*="""), "<=")
+        .replace(Regex(""">\s*="""), ">=")
+        .replace(Regex("""\+\s*="""), "+=")
+        .replace(Regex("""-\s*="""), "-=")
+        .replace(Regex("""\*\s*="""), "*=")
+        .replace(Regex("""/\s*="""), "/=")
+        .replace(Regex("""%\s*="""), "%=")
+        .replace(Regex("""\*\s*\*"""), "**")
+        .replace(Regex("""\s+:(?=\s|$)"""), ":")
+}
+
+private fun String.startsWithPythonBlockKeyword(): Boolean {
+    return Regex(
+        """^(for|while|if|elif|else|with|try|except|finally|def|class)\b"""
+    ).containsMatchIn(this)
+}
+
+private fun String.isLikelyPythonBlockHeaderPrefix(): Boolean {
+    val trimmed = trimEnd()
+    if (!trimmed.startsWithPythonBlockKeyword()) return false
+    if (
+        Regex("""(==|!=|<=|>=|<|>)\s*$""").containsMatchIn(trimmed) ||
+        Regex("""\b(is|is\s+not|in|not\s+in)\s*$""").containsMatchIn(trimmed)
+    ) {
+        return false
+    }
+    return true
 }
 
 private fun decodeCommonMojibake(text: String): String {

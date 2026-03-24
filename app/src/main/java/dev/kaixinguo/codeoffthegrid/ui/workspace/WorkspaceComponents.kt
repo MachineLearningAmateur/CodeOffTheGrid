@@ -8,12 +8,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -1096,10 +1098,10 @@ internal fun ToolChip(
 }
 
 @Composable
-internal fun ColorChip(
-    color: Color,
+internal fun SelectorChip(
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    content: @Composable BoxScope.() -> Unit
 ) {
     Surface(
         color = CardBackgroundAlt,
@@ -1110,7 +1112,26 @@ internal fun ColorChip(
         Box(
             modifier = Modifier
                 .padding(4.dp)
-                .size(16.dp)
+                .size(16.dp),
+            contentAlignment = Alignment.Center,
+            content = content
+        )
+    }
+}
+
+@Composable
+internal fun ColorChip(
+    color: Color,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    SelectorChip(
+        selected = selected,
+        onClick = onClick
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
                 .clip(CircleShape)
                 .background(color)
         )

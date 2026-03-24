@@ -1,5 +1,6 @@
 package dev.kaixinguo.codeoffthegrid.ui.workspace
 
+import android.view.MotionEvent
 import android.os.SystemClock
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -19,7 +20,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -40,6 +41,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
@@ -79,6 +81,7 @@ private val PythonKeywords = setOf(
 
 private const val PythonIndent = "    "
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun UnifiedWorkspaceSurface(
     inputMode: WorkspaceInputMode,
@@ -109,68 +112,148 @@ internal fun UnifiedWorkspaceSurface(
         }
     }
     val drawModifier = if (inputMode == WorkspaceInputMode.Sketch) {
-        Modifier.pointerInput(inputMode, sketchTool, eraserSize, activeColor) {
-            var currentStroke = mutableListOf<SketchPoint>()
-            detectDragGestures(
-                onDragStart = { offset ->
-                    if (sketchTool == SketchTool.DiagramPen || sketchTool == SketchTool.CodePen) {
+        Modifier.pointerInteropFilter { event ->
+            val pointerIndex = event.actionIndex.coerceAtLeast(0)
+            val pointerOffset = Offset(event.getX(pointerIndex), event.getY(pointerIndex))
+            var currentStroke = activeStrokePoints.toMutableList()
+            val effectiveTool = resolveEffectiveSketchTool(
+                event = event,
+                configuredTool = sketchTool
+            )
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    if (effectiveTool == SketchTool.DiagramPen || effectiveTool == SketchTool.CodePen) {
                         activeStrokeColor = activeColor
-                        activeStrokeKind = if (sketchTool == SketchTool.CodePen) {
+                        activeStrokeKind = if (effectiveTool == SketchTool.CodePen) {
                             SketchStrokeKind.Code
                         } else {
                             SketchStrokeKind.Diagram
                         }
                         currentStroke = mutableListOf(
                             SketchPoint(
-                                offset = offset,
-                                timestampMillis = SystemClock.uptimeMillis()
+                                offset = pointerOffset,
+                                timestampMillis = event.eventTime
                             )
                         )
                         onActiveStrokePointsChange(currentStroke.toList())
                         eraserCursor = null
                     } else {
-                        eraserCursor = offset
-                        eraseAt(strokes, offset, eraserSize.radius)
+                        currentStroke = mutableListOf()
+                        onActiveStrokePointsChange(emptyList())
+                        eraserCursor = pointerOffset
+                        eraseAt(strokes, pointerOffset, eraserSize.radius)
                         onStrokesChange(strokes.toList())
                     }
-                },
-                onDragEnd = {
-                    if (
-                        (sketchTool == SketchTool.DiagramPen || sketchTool == SketchTool.CodePen) &&
-                        currentStroke.size > 1
-                    ) {
-                        strokes.add(
-                            SketchStroke(
-                                points = currentStroke.toList(),
-                                color = activeStrokeColor,
-                                kind = activeStrokeKind
-                            )
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val currentTool = if (currentStroke.isEmpty()) {
+                        effectiveTool
+                    } else if (activeStrokeKind == SketchStrokeKind.Code) {
+                        SketchTool.CodePen
+                    } else {
+                        SketchTool.DiagramPen
+                    }
+
+                    if (currentTool != effectiveTool) {
+                        commitSketchStrokeIfNeeded(
+                            strokes = strokes,
+                            currentStroke = currentStroke,
+                            color = activeStrokeColor,
+                            kind = activeStrokeKind,
+                            onStrokesChange = onStrokesChange
                         )
+                        currentStroke = mutableListOf()
+                        onActiveStrokePointsChange(emptyList())
+
+                        if (effectiveTool == SketchTool.Eraser) {
+                            eraserCursor = pointerOffset
+                            eraseAt(strokes, pointerOffset, eraserSize.radius)
+                            onStrokesChange(strokes.toList())
+                        } else {
+                            activeStrokeColor = activeColor
+                            activeStrokeKind = if (effectiveTool == SketchTool.CodePen) {
+                                SketchStrokeKind.Code
+                            } else {
+                                SketchStrokeKind.Diagram
+                            }
+                            currentStroke = mutableListOf(
+                                SketchPoint(
+                                    offset = pointerOffset,
+                                    timestampMillis = event.eventTime
+                                )
+                            )
+                            onActiveStrokePointsChange(currentStroke.toList())
+                            eraserCursor = null
+                        }
+                        return@pointerInteropFilter true
+                    }
+
+                    if (effectiveTool == SketchTool.DiagramPen || effectiveTool == SketchTool.CodePen) {
+                        for (historyIndex in 0 until event.historySize) {
+                            appendInterpolatedPoints(
+                                stroke = currentStroke,
+                                nextPoint = Offset(
+                                    event.getHistoricalX(pointerIndex, historyIndex),
+                                    event.getHistoricalY(pointerIndex, historyIndex)
+                                ),
+                                timestampMillis = event.getHistoricalEventTime(historyIndex)
+                            )
+                        }
+                        appendInterpolatedPoints(
+                            stroke = currentStroke,
+                            nextPoint = pointerOffset,
+                            timestampMillis = event.eventTime
+                        )
+                        onActiveStrokePointsChange(currentStroke.toList())
+                        eraserCursor = null
+                    } else {
+                        eraserCursor = pointerOffset
+                        for (historyIndex in 0 until event.historySize) {
+                            eraseAt(
+                                strokes,
+                                Offset(
+                                    event.getHistoricalX(pointerIndex, historyIndex),
+                                    event.getHistoricalY(pointerIndex, historyIndex)
+                                ),
+                                eraserSize.radius
+                            )
+                        }
+                        eraseAt(strokes, pointerOffset, eraserSize.radius)
                         onStrokesChange(strokes.toList())
                     }
-                    currentStroke = mutableListOf()
+                    true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    if (effectiveTool == SketchTool.DiagramPen || effectiveTool == SketchTool.CodePen) {
+                        appendInterpolatedPoints(
+                            stroke = currentStroke,
+                            nextPoint = pointerOffset,
+                            timestampMillis = event.eventTime
+                        )
+                        commitSketchStrokeIfNeeded(
+                            strokes = strokes,
+                            currentStroke = currentStroke,
+                            color = activeStrokeColor,
+                            kind = activeStrokeKind,
+                            onStrokesChange = onStrokesChange
+                        )
+                    }
                     eraserCursor = null
                     onActiveStrokePointsChange(emptyList())
-                },
-                onDragCancel = {
-                    currentStroke = mutableListOf()
+                    true
+                }
+
+                MotionEvent.ACTION_CANCEL -> {
                     eraserCursor = null
                     onActiveStrokePointsChange(emptyList())
+                    true
                 }
-            ) { change, _ ->
-                change.consume()
-                if (sketchTool == SketchTool.DiagramPen || sketchTool == SketchTool.CodePen) {
-                    appendInterpolatedPoints(
-                        stroke = currentStroke,
-                        nextPoint = change.position,
-                        timestampMillis = change.uptimeMillis
-                    )
-                    onActiveStrokePointsChange(currentStroke.toList())
-                } else {
-                    eraserCursor = change.position
-                    eraseAt(strokes, change.position, eraserSize.radius)
-                    onStrokesChange(strokes.toList())
-                }
+
+                else -> false
             }
         }
     } else {
@@ -269,6 +352,48 @@ private fun eraseAt(strokes: MutableList<SketchStroke>, position: Offset, radius
     }
     strokes.clear()
     strokes.addAll(updatedStrokes)
+}
+
+private fun commitSketchStrokeIfNeeded(
+    strokes: MutableList<SketchStroke>,
+    currentStroke: List<SketchPoint>,
+    color: Color,
+    kind: SketchStrokeKind,
+    onStrokesChange: (List<SketchStroke>) -> Unit
+) {
+    if (currentStroke.size <= 1) return
+    strokes.add(
+        SketchStroke(
+            points = currentStroke.toList(),
+            color = color,
+            kind = kind
+        )
+    )
+    onStrokesChange(strokes.toList())
+}
+
+private fun resolveEffectiveSketchTool(
+    event: MotionEvent,
+    configuredTool: SketchTool
+): SketchTool {
+    if (!event.isStylusEraserButtonPressed()) return configuredTool
+    return configuredTool.toTemporaryEraserOverride()
+}
+
+private fun SketchTool.toTemporaryEraserOverride(): SketchTool {
+    return when (this) {
+        SketchTool.DiagramPen,
+        SketchTool.CodePen -> SketchTool.Eraser
+        SketchTool.Eraser -> SketchTool.Eraser
+    }
+}
+
+private fun MotionEvent.isStylusEraserButtonPressed(): Boolean {
+    if (pointerCount <= 0) return false
+    val toolType = getToolType(actionIndex.coerceAtLeast(0))
+    if (toolType != MotionEvent.TOOL_TYPE_STYLUS) return false
+    val stylusButtons = MotionEvent.BUTTON_STYLUS_PRIMARY or MotionEvent.BUTTON_STYLUS_SECONDARY
+    return (buttonState and stylusButtons) != 0
 }
 
 private fun appendInterpolatedPoints(

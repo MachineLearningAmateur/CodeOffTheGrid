@@ -153,6 +153,40 @@ class SketchCodeStrokeLayoutTest {
     }
 
     @Test
+    fun normalizeRecognizedCodeLine_fixesCommonPythonOperatorSpacing() {
+        assertEquals(
+            "for i in nums: total += i if total != limit and current <= max_value and next >= min_value and value == target:",
+            normalizeRecognizedCodeLine(
+                "for i in nums : total + = i if total ! = limit and current < = max_value and next > = min_value and value = = target :"
+            )
+        )
+    }
+
+    @Test
+    fun normalizeRecognizedCodeLine_fixesMisreadBlockColonDigit() {
+        assertEquals(
+            "for i in nums: total += i",
+            normalizeRecognizedCodeLine("for i in nums 8 total + = i")
+        )
+        assertEquals(
+            "if total:",
+            normalizeRecognizedCodeLine("if total 8")
+        )
+    }
+
+    @Test
+    fun normalizeRecognizedCodeLine_keepsLiteralEightComparisons() {
+        assertEquals(
+            "if value == 8",
+            normalizeRecognizedCodeLine("if value == 8")
+        )
+        assertEquals(
+            "if value is 8",
+            normalizeRecognizedCodeLine("if value is 8")
+        )
+    }
+
+    @Test
     fun formatRecognizedPythonDraftForEditor_nestsBodyUnderExistingFunctionHeader() {
         val formatted = formatRecognizedPythonDraftForEditor(
             recognizedDraft = "counts = {}\nreturn counts",
