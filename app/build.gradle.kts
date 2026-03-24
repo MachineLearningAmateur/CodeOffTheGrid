@@ -12,12 +12,12 @@ val keystorePropertiesFile = rootProject.file("keystore.properties")
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use(keystoreProperties::load)
 }
-val appVersionCode = 3
-val appVersionName = "1.0.1"
+val appVersionCode = 4
+val appVersionName = "1.1.0"
 val releaseArtifactBaseName = "CodeOffTheGrid"
 
 android {
-    namespace = "dev.kaixinguo.standalonecodepractice"
+    namespace = "dev.kaixinguo.codeoffthegrid"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.kaixinguo.standalonecodepractice"
+        applicationId = "dev.kaixinguo.codeoffthegrid"
         minSdk = 29
         targetSdk = 36
         versionCode = appVersionCode
@@ -94,6 +94,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.mlkit.digital.ink.recognition)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")
