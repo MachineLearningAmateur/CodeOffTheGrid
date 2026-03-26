@@ -145,6 +145,147 @@ class SketchCodeStrokeLayoutTest {
     }
 
     @Test
+    fun reconstructCode_splitsEmbeddedNewlinesAfterPythonBlockColon() {
+        val loopLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 10f, timestampStart = 0L)),
+            minX = 10f,
+            maxX = 160f,
+            minY = 10f,
+            maxY = 30f,
+            lineHeight = 24f
+        )
+        val conditionalLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 48f, timestampStart = 100L)),
+            minX = 10f,
+            maxX = 170f,
+            minY = 48f,
+            maxY = 68f,
+            lineHeight = 24f
+        )
+
+        val reconstructed = SketchCodeStrokeLayout.reconstructCode(
+            listOf(
+                loopLine to "for i in nums:\ntotal += i",
+                conditionalLine to "if total:\nreturn total"
+            )
+        )
+
+        assertEquals(
+            "for i in nums:\n    total += i\nif total:\n    return total",
+            reconstructed
+        )
+    }
+
+    @Test
+    fun reconstructCode_preservesDedentForEmbeddedElifAndElseBlocks() {
+        val ifLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 10f, timestampStart = 0L)),
+            minX = 10f,
+            maxX = 180f,
+            minY = 10f,
+            maxY = 30f,
+            lineHeight = 24f
+        )
+        val elifLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 48f, timestampStart = 100L)),
+            minX = 10f,
+            maxX = 190f,
+            minY = 48f,
+            maxY = 68f,
+            lineHeight = 24f
+        )
+        val elseLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 86f, timestampStart = 200L)),
+            minX = 10f,
+            maxX = 150f,
+            minY = 86f,
+            maxY = 106f,
+            lineHeight = 24f
+        )
+
+        val reconstructed = SketchCodeStrokeLayout.reconstructCode(
+            listOf(
+                ifLine to "if first:\nreturn first",
+                elifLine to "elif second:\nreturn second",
+                elseLine to "else:\nreturn fallback"
+            )
+        )
+
+        assertEquals(
+            "if first:\n    return first\nelif second:\n    return second\nelse:\n    return fallback",
+            reconstructed
+        )
+    }
+
+    @Test
+    fun reconstructCode_indentsNestedEmbeddedBlocks() {
+        val outerIfLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 10f, timestampStart = 0L)),
+            minX = 10f,
+            maxX = 200f,
+            minY = 10f,
+            maxY = 30f,
+            lineHeight = 24f
+        )
+        val loopLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 36f, y = 48f, timestampStart = 100L)),
+            minX = 36f,
+            maxX = 220f,
+            minY = 48f,
+            maxY = 68f,
+            lineHeight = 24f
+        )
+        val returnLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 62f, y = 86f, timestampStart = 200L)),
+            minX = 62f,
+            maxX = 180f,
+            minY = 86f,
+            maxY = 106f,
+            lineHeight = 24f
+        )
+
+        val reconstructed = SketchCodeStrokeLayout.reconstructCode(
+            listOf(
+                outerIfLine to "if ready:",
+                loopLine to "for value in nums:\ntotal += value",
+                returnLine to "if total:\nreturn total"
+            )
+        )
+
+        assertEquals(
+            "if ready:\n    for value in nums:\n        total += value\n        if total:\n            return total",
+            reconstructed
+        )
+    }
+
+    @Test
+    fun formatRecognizedPythonDraftForEditor_preservesElifElseChainsFromRecognizedDraft() {
+        val formatted = formatRecognizedPythonDraftForEditor(
+            recognizedDraft = "if value:\n    return value\nelif fallback:\n    return fallback\nelse:\n    return default",
+            currentDraftCode = """
+                class Solution:
+                    def solve(self, value, fallback, default):
+                        pass
+            """.trimIndent(),
+            append = false
+        )
+
+        assertEquals(
+            """
+                class Solution:
+                    def solve(self, value, fallback, default):
+                        if value:
+                            return value
+                        elif fallback:
+                            return fallback
+                        else:
+                            return default
+            """.trimIndent(),
+            formatted
+        )
+    }
+
+    @Test
     fun normalizeRecognizedCodeLine_replacesSmartPunctuation() {
         assertEquals(
             "\"value\" - 'item'",

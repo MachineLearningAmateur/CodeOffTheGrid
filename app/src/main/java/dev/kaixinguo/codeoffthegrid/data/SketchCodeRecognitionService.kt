@@ -446,6 +446,16 @@ private fun String.isPythonDedentFollower(): Boolean {
 }
 
 private fun String.expandInlinePythonBlockLine(): List<String> {
+    val logicalLines = lineSequence()
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .toList()
+    if (logicalLines.isEmpty()) return listOf("")
+
+    return logicalLines.flatMap { line -> line.expandSingleInlinePythonBlockLine() }
+}
+
+private fun String.expandSingleInlinePythonBlockLine(): List<String> {
     val trimmed = trim()
     val blockHeaderRegex = Regex(
         """^(for\s+.+|while\s+.+|if\s+.+|elif\s+.+|else|with\s+.+|try|except(?:\s+.+)?|finally|def\s+.+|class\s+.+):\s+(.+)$"""
