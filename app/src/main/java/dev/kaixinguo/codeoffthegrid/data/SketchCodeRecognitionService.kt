@@ -330,6 +330,7 @@ internal fun normalizeRecognizedCodeLine(text: String): String {
         .replace("\u2014", "-")
         .normalizeLikelyMisreadPythonBlockColon()
         .normalizePythonOperatorSpacing()
+        .normalizeLikelyMissingInlinePythonBlockColon()
         .replace(Regex("[ ]{2,}"), " ")
         .trim()
 }
@@ -339,6 +340,26 @@ private fun String.normalizeLikelyMisreadPythonBlockColon(): String {
     val trimmed = trim()
     if (!trimmed.startsWithPythonBlockKeyword() || ':' in trimmed) {
         return this
+    }
+
+    val punctuationSplitIndex = trimmed.findLikelyMisreadPythonBlockColonSplit()
+    if (punctuationSplitIndex != null) {
+        val headerPrefix = trimmed.substring(0, punctuationSplitIndex).trimEnd()
+        val body = trimmed.substring(punctuationSplitIndex + 1).trimStart()
+        if (headerPrefix.isLikelyPythonBlockHeaderPrefix() && body.isLikelyPythonInlineBody()) {
+            return "$leadingWhitespace$headerPrefix: $body"
+        }
+    }
+
+    val trailingPunctuation = trimmed.lastOrNull()
+    if (
+        trailingPunctuation != null &&
+        trailingPunctuation.isLikelyMisreadPythonBlockColonChar()
+    ) {
+        val headerPrefix = trimmed.dropLast(1).trimEnd()
+        if (headerPrefix.isLikelyPythonBlockHeaderPrefix()) {
+            return "$leadingWhitespace$headerPrefix:"
+        }
     }
 
     val inlineBodyMatch = Regex("""^(.+?)(?<![!<>=])\s+[78]\s+(.+)$""").matchEntire(trimmed)
@@ -376,10 +397,74 @@ private fun String.normalizePythonOperatorSpacing(): String {
         .replace(Regex("""\s+:(?=\s|$)"""), ":")
 }
 
+private fun String.normalizeLikelyMissingInlinePythonBlockColon(): String {
+    val leadingWhitespace = takeWhile(Char::isWhitespace)
+    val trimmed = trim()
+    if (!trimmed.startsWithPythonBlockKeyword() || ':' in trimmed) {
+        return this
+    }
+
+    val splitIndex = trimmed.findLikelyInlinePythonBodyStart() ?: return this
+    val headerPrefix = trimmed.substring(0, splitIndex).trimEnd()
+    val body = trimmed.substring(splitIndex).trimStart()
+    if (body.isBlank() || !headerPrefix.isLikelyPythonBlockHeaderPrefix()) {
+        return this
+    }
+
+    return "$leadingWhitespace$headerPrefix: $body"
+}
+
 private fun String.startsWithPythonBlockKeyword(): Boolean {
     return Regex(
         """^(for|while|if|elif|else|with|try|except|finally|def|class)\b"""
     ).containsMatchIn(this)
+}
+
+private fun String.findLikelyMisreadPythonBlockColonSplit(): Int? {
+    return indices.reversed().firstOrNull { index ->
+        get(index).isLikelyMisreadPythonBlockColonChar() &&
+            substring(0, index).trimEnd().isLikelyPythonBlockHeaderPrefix() &&
+            substring(index + 1).trimStart().isLikelyPythonInlineBody()
+    }
+}
+
+private fun Char.isLikelyMisreadPythonBlockColonChar(): Boolean {
+    return this == ';' || this == '.' || this == ','
+}
+
+private fun String.findLikelyInlinePythonBodyStart(): Int? {
+    val whitespaceRegex = Regex("""\s+""")
+    return whitespaceRegex.findAll(this)
+        .map { it.range.last + 1 }
+        .firstOrNull { splitIndex ->
+            val headerPrefix = substring(0, splitIndex).trimEnd()
+            val body = substring(splitIndex).trimStart()
+            headerPrefix.isLikelyPythonBlockHeaderPrefix() && body.isLikelyPythonInlineBody()
+        }
+}
+
+private fun String.isLikelyPythonInlineBody(): Boolean {
+    val trimmed = trimStart()
+    if (trimmed.isBlank()) return false
+
+    val statementStarterRegex = Regex(
+        """^(return|pass|break|continue|raise|yield|assert|del|import|from|global|nonlocal|if|for|while|with|try|print|await)\b"""
+    )
+    if (statementStarterRegex.containsMatchIn(trimmed)) {
+        return true
+    }
+
+    val assignmentRegex = Regex(
+        """^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*|\[[^\]]+\])*\s*(=|\+=|-=|\*=|/=|//=|%=|\*\*=|>>=|<<=|&=|\|=|\^=)\s+.+$"""
+    )
+    if (assignmentRegex.containsMatchIn(trimmed)) {
+        return true
+    }
+
+    val callRegex = Regex(
+        """^(?:[A-Za-z_][A-Za-z0-9_]*|super\([^)]*\))(?:\.[A-Za-z_][A-Za-z0-9_]*|\[[^\]]+\])*\s*\(.*\)\s*$"""
+    )
+    return callRegex.containsMatchIn(trimmed)
 }
 
 private fun String.isLikelyPythonBlockHeaderPrefix(): Boolean {
@@ -387,7 +472,9 @@ private fun String.isLikelyPythonBlockHeaderPrefix(): Boolean {
     if (!trimmed.startsWithPythonBlockKeyword()) return false
     if (
         Regex("""(==|!=|<=|>=|<|>)\s*$""").containsMatchIn(trimmed) ||
-        Regex("""\b(is|is\s+not|in|not\s+in)\s*$""").containsMatchIn(trimmed)
+        Regex("""\b(and|or|not|is|is\s+not|in|not\s+in)\s*$""").containsMatchIn(trimmed) ||
+        Regex("""(\+|-|\*|/|//|%|\*\*|=)\s*$""").containsMatchIn(trimmed) ||
+        trimmed.lastOrNull() in setOf('(', '[', '{', '.', ',')
     ) {
         return false
     }
@@ -457,14 +544,50 @@ private fun String.expandInlinePythonBlockLine(): List<String> {
 
 private fun String.expandSingleInlinePythonBlockLine(): List<String> {
     val trimmed = trim()
-    val blockHeaderRegex = Regex(
-        """^(for\s+.+|while\s+.+|if\s+.+|elif\s+.+|else|with\s+.+|try|except(?:\s+.+)?|finally|def\s+.+|class\s+.+):\s+(.+)$"""
-    )
-    val match = blockHeaderRegex.matchEntire(trimmed) ?: return listOf(this)
-    val header = match.groupValues[1].trimEnd() + ":"
-    val body = match.groupValues[2].trim()
+    if (!trimmed.startsWithPythonBlockKeyword()) return listOf(this)
+
+    val splitIndex = trimmed.findTopLevelPythonBlockColonSplit() ?: return listOf(this)
+    val header = trimmed.substring(0, splitIndex).trimEnd() + ":"
+    val body = trimmed.substring(splitIndex + 1).trim()
     if (body.isBlank()) return listOf(header)
-    return listOf(header, body)
+    return buildList {
+        add(header)
+        addAll(body.expandSingleInlinePythonBlockLine())
+    }
+}
+
+private fun String.findTopLevelPythonBlockColonSplit(): Int? {
+    var depth = 0
+    var quoteChar: Char? = null
+    var escaping = false
+
+    forEachIndexed { index, character ->
+        if (quoteChar != null) {
+            if (escaping) {
+                escaping = false
+            } else if (character == '\\') {
+                escaping = true
+            } else if (character == quoteChar) {
+                quoteChar = null
+            }
+            return@forEachIndexed
+        }
+
+        when (character) {
+            '\'', '"' -> quoteChar = character
+            '(', '[', '{' -> depth += 1
+            ')', ']', '}' -> depth = (depth - 1).coerceAtLeast(0)
+            ':' -> if (depth == 0) {
+                val headerPrefix = substring(0, index).trimEnd()
+                val body = substring(index + 1).trimStart()
+                if (headerPrefix.isLikelyPythonBlockHeaderPrefix() && body.isNotBlank()) {
+                    return index
+                }
+            }
+        }
+    }
+
+    return null
 }
 
 private fun String.hasPythonDefinitionHeader(): Boolean {

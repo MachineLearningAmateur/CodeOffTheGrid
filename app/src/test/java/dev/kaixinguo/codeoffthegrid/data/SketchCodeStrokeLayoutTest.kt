@@ -177,6 +177,61 @@ class SketchCodeStrokeLayoutTest {
     }
 
     @Test
+    fun reconstructCode_splitsInlinePythonBlockWithoutSpaceAfterColon() {
+        val loopLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 10f, timestampStart = 0L)),
+            minX = 10f,
+            maxX = 160f,
+            minY = 10f,
+            maxY = 30f,
+            lineHeight = 24f
+        )
+        val conditionalLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 48f, timestampStart = 100L)),
+            minX = 10f,
+            maxX = 170f,
+            minY = 48f,
+            maxY = 68f,
+            lineHeight = 24f
+        )
+
+        val reconstructed = SketchCodeStrokeLayout.reconstructCode(
+            listOf(
+                loopLine to "for i in nums:total += i",
+                conditionalLine to "if total:return total"
+            )
+        )
+
+        assertEquals(
+            "for i in nums:\n    total += i\nif total:\n    return total",
+            reconstructed
+        )
+    }
+
+    @Test
+    fun reconstructCode_recursivelySplitsNestedInlinePythonBlocks() {
+        val blockLine = CodeRecognitionLine(
+            strokes = listOf(codeStroke(x = 10f, y = 10f, timestampStart = 0L)),
+            minX = 10f,
+            maxX = 220f,
+            minY = 10f,
+            maxY = 30f,
+            lineHeight = 24f
+        )
+
+        val reconstructed = SketchCodeStrokeLayout.reconstructCode(
+            listOf(
+                blockLine to "if ready: while left < right: move_left()"
+            )
+        )
+
+        assertEquals(
+            "if ready:\n    while left < right:\n        move_left()",
+            reconstructed
+        )
+    }
+
+    @Test
     fun reconstructCode_preservesDedentForEmbeddedElifAndElseBlocks() {
         val ifLine = CodeRecognitionLine(
             strokes = listOf(codeStroke(x = 10f, y = 10f, timestampStart = 0L)),
@@ -312,6 +367,22 @@ class SketchCodeStrokeLayoutTest {
         assertEquals(
             "if total:",
             normalizeRecognizedCodeLine("if total 8")
+        )
+    }
+
+    @Test
+    fun normalizeRecognizedCodeLine_fixesMisreadBlockColonPunctuationAndCallBodies() {
+        assertEquals(
+            "while left < right: move_left()",
+            normalizeRecognizedCodeLine("while left < right;move_left()")
+        )
+        assertEquals(
+            "else: handle_fallback()",
+            normalizeRecognizedCodeLine("else handle_fallback()")
+        )
+        assertEquals(
+            "elif ready:",
+            normalizeRecognizedCodeLine("elif ready.")
         )
     }
 
