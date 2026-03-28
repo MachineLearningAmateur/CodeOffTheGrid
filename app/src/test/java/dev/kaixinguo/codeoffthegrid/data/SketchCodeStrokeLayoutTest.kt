@@ -387,6 +387,70 @@ class SketchCodeStrokeLayoutTest {
     }
 
     @Test
+    fun normalizeRecognizedCodeLine_restoresLikelyMissingCallParentheses() {
+        assertEquals(
+            "print(value)",
+            normalizeRecognizedCodeLine("print value")
+        )
+        assertEquals(
+            "items.append(next_value)",
+            normalizeRecognizedCodeLine("items.append next_value")
+        )
+        assertEquals(
+            "notify_user('done')",
+            normalizeRecognizedCodeLine("notify_user 'done'")
+        )
+    }
+
+    @Test
+    fun normalizeRecognizedCodeLine_normalizesCallSpacingAndEmptyPrintCalls() {
+        assertEquals(
+            "print(value)",
+            normalizeRecognizedCodeLine("print ( value )")
+        )
+        assertEquals(
+            "items.append(next_value)",
+            normalizeRecognizedCodeLine("items.append ( next_value )")
+        )
+        assertEquals(
+            "print()",
+            normalizeRecognizedCodeLine("print")
+        )
+    }
+
+    @Test
+    fun normalizeRecognizedCodeLine_keepsControlFlowAndAssignmentsUnwrapped() {
+        assertEquals(
+            "return value",
+            normalizeRecognizedCodeLine("return value")
+        )
+        assertEquals(
+            "if ready",
+            normalizeRecognizedCodeLine("if ready")
+        )
+        assertEquals(
+            "count = value",
+            normalizeRecognizedCodeLine("count = value")
+        )
+    }
+
+    @Test
+    fun normalizeRecognizedCodeLine_restoresRecursiveCallsInsideExpressions() {
+        assertEquals(
+            "dfs(node.left)",
+            normalizeRecognizedCodeLine("dfs node.left")
+        )
+        assertEquals(
+            "return helper(n - 1)",
+            normalizeRecognizedCodeLine("return helper n - 1")
+        )
+        assertEquals(
+            "result = solve(left, path + [value])",
+            normalizeRecognizedCodeLine("result = solve left, path + [value]")
+        )
+    }
+
+    @Test
     fun normalizeRecognizedCodeLine_keepsLiteralEightComparisons() {
         assertEquals(
             "if value == 8",
