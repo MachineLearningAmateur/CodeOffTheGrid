@@ -329,11 +329,15 @@ internal fun normalizeRecognizedCodeLine(text: String): String {
         .replace("\u2014", "-")
         .normalizeLikelyMisreadPythonBlockColon()
         .normalizePythonOperatorSpacing()
+        .normalizePythonAccessSpacing()
         .normalizePythonCallSpacing()
+        .normalizeLikelyMissingDefinitionParentheses()
         .normalizeLikelyMissingInlinePythonBlockColon()
+        .normalizeLikelyMissingCallParenthesesInBlockHeaders()
         .normalizeLikelyMissingCallParentheses()
         .normalizeLikelyMissingCallParenthesesInExpressionStatements()
         .normalizeLikelyEmptyPrintCall()
+        .normalizePythonAccessSpacing()
         .normalizePythonCallSpacing()
         .replace(Regex("[ ]{2,}"), " ")
         .trim()
@@ -413,6 +417,16 @@ private fun String.normalizePythonOperatorSpacing(): String {
         .replace(Regex("""\s+:(?=\s|$)"""), ":")
 }
 
+private fun String.normalizePythonAccessSpacing(): String {
+    return this
+        .replace(Regex("""\s*\.\s*"""), ".")
+        .replace(Regex("""([A-Za-z0-9_\)\]])\s+\["""), "$1[")
+        .replace(Regex("""\[\s+"""), "[")
+        .replace(Regex("""\s+\]"""), "]")
+        .replace(Regex("""\{\s+"""), "{")
+        .replace(Regex("""\s+\}"""), "}")
+}
+
 private fun String.normalizePythonCallSpacing(): String {
     return this
         .replace(
@@ -424,6 +438,23 @@ private fun String.normalizePythonCallSpacing(): String {
         .replace(Regex("""\(\s+"""), "(")
         .replace(Regex("""\s+\)"""), ")")
         .replace(Regex("""\s*,\s*"""), ", ")
+}
+
+private fun String.normalizeLikelyMissingDefinitionParentheses(): String {
+    val leadingWhitespace = takeWhile(Char::isWhitespace)
+    val trimmed = trim()
+    if (!trimmed.startsWith("def ") || '(' in trimmed || !trimmed.endsWith(":")) {
+        return this
+    }
+
+    val match = Regex("""^def\s+([A-Za-z_][A-Za-z0-9_]*)\s+(.+):$""").matchEntire(trimmed) ?: return this
+    val functionName = match.groupValues[1]
+    val parameters = match.groupValues[2].trim()
+    if (!parameters.isLikelyPythonParameterList()) {
+        return this
+    }
+
+    return "${leadingWhitespace}def $functionName($parameters):"
 }
 
 private fun String.normalizeLikelyMissingInlinePythonBlockColon(): String {
@@ -460,6 +491,47 @@ private fun String.normalizeLikelyEmptyPrintCall(): String {
     }
 }
 
+private fun String.normalizeLikelyMissingCallParenthesesInBlockHeaders(): String {
+    val leadingWhitespace = takeWhile(Char::isWhitespace)
+    val trimmed = trim()
+    if (!trimmed.endsWith(":")) return this
+
+    val conditionKeyword = listOf("if", "elif", "while").firstOrNull { keyword ->
+        trimmed.startsWith("$keyword ")
+    }
+    if (conditionKeyword != null) {
+        val condition = trimmed.removePrefix("$conditionKeyword ").dropLast(1).trim()
+        val normalizedCondition = condition.normalizeLikelyBareCallsWithinExpression() ?: return this
+        return "$leadingWhitespace$conditionKeyword $normalizedCondition:"
+    }
+
+    if (trimmed.startsWith("for ")) {
+        val forBody = trimmed.removePrefix("for ").dropLast(1)
+        val inIndex = forBody.findTopLevelKeyword(" in ")
+        if (inIndex != null) {
+            val target = forBody.substring(0, inIndex).trimEnd()
+            val iterable = forBody.substring(inIndex + 4).trimStart()
+            val normalizedIterable = iterable.normalizeLikelyBareCallsWithinExpression() ?: return this
+            return "$leadingWhitespace" + "for $target in $normalizedIterable:"
+        }
+    }
+
+    if (trimmed.startsWith("with ")) {
+        val withBody = trimmed.removePrefix("with ").dropLast(1)
+        val asIndex = withBody.findTopLevelKeyword(" as ")
+        val contextExpression = if (asIndex == null) withBody.trim() else withBody.substring(0, asIndex).trimEnd()
+        val normalizedContextExpression = contextExpression.normalizeLikelyBareCallsWithinExpression() ?: return this
+        return if (asIndex == null) {
+            "$leadingWhitespace" + "with $normalizedContextExpression:"
+        } else {
+            val alias = withBody.substring(asIndex + 4).trimStart()
+            "$leadingWhitespace" + "with $normalizedContextExpression as $alias:"
+        }
+    }
+
+    return this
+}
+
 private fun String.normalizeLikelyMissingCallParenthesesInExpressionStatements(): String {
     val leadingWhitespace = takeWhile(Char::isWhitespace)
     val trimmed = trim()
@@ -468,14 +540,14 @@ private fun String.normalizeLikelyMissingCallParenthesesInExpressionStatements()
     if (prefixedExpression != null) {
         val keyword = prefixedExpression.groupValues[1]
         val expression = prefixedExpression.groupValues[2]
-        val normalizedExpression = expression.normalizeLikelyBareCallExpression()
+        val normalizedExpression = expression.normalizeLikelyBareCallsWithinExpression()
         if (normalizedExpression != null) {
             return "$leadingWhitespace$keyword $normalizedExpression"
         }
     }
 
     val assignment = trimmed.findTopLevelAssignmentSplit() ?: return this
-    val normalizedRightHandSide = assignment.right.normalizeLikelyBareCallExpression() ?: return this
+    val normalizedRightHandSide = assignment.right.normalizeLikelyBareCallsWithinExpression() ?: return this
     return "$leadingWhitespace${assignment.left} ${assignment.operator} $normalizedRightHandSide"
 }
 
@@ -564,8 +636,50 @@ private fun String.findLikelyBarePythonCall(): BarePythonCall? {
 }
 
 private fun String.normalizeLikelyBareCallExpression(): String? {
-    val bareCall = trim().findLikelyBarePythonCall() ?: return null
+    val trimmed = trim()
+    val unaryNotMatch = Regex("""^(not\s+)(.+)$""").matchEntire(trimmed)
+    if (unaryNotMatch != null) {
+        val normalizedInner = unaryNotMatch.groupValues[2].normalizeLikelyBareCallExpression() ?: return null
+        return unaryNotMatch.groupValues[1] + normalizedInner
+    }
+
+    val bareCall = trimmed.findLikelyBarePythonCall() ?: return null
     return "${bareCall.awaitPrefix}${bareCall.target}(${bareCall.arguments})".trim()
+}
+
+private fun String.normalizeLikelyBareCallsWithinExpression(): String? {
+    val trimmed = trim()
+    if (trimmed.isBlank()) return null
+
+    topLevelBooleanOperators.firstNotNullOfOrNull { operator ->
+        val splitIndex = trimmed.findTopLevelKeyword(operator) ?: return@firstNotNullOfOrNull null
+        val left = trimmed.substring(0, splitIndex)
+        val right = trimmed.substring(splitIndex + operator.length)
+        val normalizedLeft = left.normalizeLikelyBareCallsWithinExpression()
+        val normalizedRight = right.normalizeLikelyBareCallsWithinExpression()
+        if (normalizedLeft == null && normalizedRight == null) {
+            null
+        } else {
+            (normalizedLeft ?: left.trim()) + operator + (normalizedRight ?: right.trim())
+        }
+    }?.let { return it }
+
+    topLevelComparisonOperators.firstNotNullOfOrNull { operator ->
+        val splitIndex = trimmed.findTopLevelKeyword(operator) ?: return@firstNotNullOfOrNull null
+        val left = trimmed.substring(0, splitIndex)
+        val right = trimmed.substring(splitIndex + operator.length)
+        val normalizedLeft = left.normalizeLikelyBareCallsWithinExpression()
+        val normalizedRight = right.normalizeLikelyBareCallsWithinExpression()
+        if (normalizedLeft == null && normalizedRight == null) {
+            null
+        } else {
+            (normalizedLeft ?: left.trim()) + operator + (normalizedRight ?: right.trim())
+        }
+    }?.let { return it }
+
+    normalizeLikelyBareCallExpression()?.let { return it }
+
+    return null
 }
 
 private fun String.findTopLevelAssignmentSplit(): TopLevelAssignmentSplit? {
@@ -637,6 +751,59 @@ private val assignmentOperators = listOf(
     "="
 )
 
+private val topLevelBooleanOperators = listOf(
+    " or ",
+    " and "
+)
+
+private val topLevelComparisonOperators = listOf(
+    " is not ",
+    " not in ",
+    " == ",
+    " != ",
+    " <= ",
+    " >= ",
+    " < ",
+    " > ",
+    " is ",
+    " in "
+)
+
+private fun String.findTopLevelKeyword(keyword: String): Int? {
+    var depth = 0
+    var quoteChar: Char? = null
+    var escaping = false
+    var index = 0
+
+    while (index <= length - keyword.length) {
+        val character = this[index]
+        if (quoteChar != null) {
+            if (escaping) {
+                escaping = false
+            } else if (character == '\\') {
+                escaping = true
+            } else if (character == quoteChar) {
+                quoteChar = null
+            }
+            index += 1
+            continue
+        }
+
+        when (character) {
+            '\'', '"' -> quoteChar = character
+            '(', '[', '{' -> depth += 1
+            ')', ']', '}' -> depth = (depth - 1).coerceAtLeast(0)
+            else -> if (depth == 0 && startsWith(keyword, index)) {
+                return index
+            }
+        }
+
+        index += 1
+    }
+
+    return null
+}
+
 private fun String.isDisallowedBarePythonCallTarget(): Boolean {
     val rootToken = when {
         startsWith("super(") -> "super"
@@ -698,6 +865,24 @@ private fun String.isLikelyPythonCallArgumentList(): Boolean {
     }
 
     return true
+}
+
+private fun String.isLikelyPythonParameterList(): Boolean {
+    val trimmed = trim()
+    if (trimmed.isBlank() || !trimmed.hasBalancedPythonDelimiters()) {
+        return false
+    }
+
+    val parameters = trimmed.split(',')
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+    if (parameters.isEmpty()) return false
+
+    return parameters.all { parameter ->
+        Regex(
+            """^(\*{0,2}[A-Za-z_][A-Za-z0-9_]*)(\s*=\s*.+)?$"""
+        ).matches(parameter)
+    }
 }
 
 private fun String.isLikelyPythonBlockHeaderPrefix(): Boolean {

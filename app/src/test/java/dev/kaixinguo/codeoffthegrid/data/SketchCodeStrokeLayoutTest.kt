@@ -451,6 +451,58 @@ class SketchCodeStrokeLayoutTest {
     }
 
     @Test
+    fun normalizeRecognizedCodeLine_restoresDefinitionParenthesesAndAccessSpacing() {
+        assertEquals(
+            "def dfs(node, path=None):",
+            normalizeRecognizedCodeLine("def dfs node, path=None:")
+        )
+        assertEquals(
+            "self.cache[node.left] = value",
+            normalizeRecognizedCodeLine("self . cache [ node . left ] = value")
+        )
+    }
+
+    @Test
+    fun normalizeRecognizedCodeLine_restoresCallsInsideBlockHeaders() {
+        assertEquals(
+            "if is_valid(node):",
+            normalizeRecognizedCodeLine("if is_valid node:")
+        )
+        assertEquals(
+            "while not ready(node):",
+            normalizeRecognizedCodeLine("while not ready node:")
+        )
+        assertEquals(
+            "for value in reversed(nums):",
+            normalizeRecognizedCodeLine("for value in reversed nums:")
+        )
+        assertEquals(
+            "with open(path) as handle:",
+            normalizeRecognizedCodeLine("with open path as handle:")
+        )
+    }
+
+    @Test
+    fun normalizeRecognizedCodeLine_restoresCallsInsideBooleanAndComparisonExpressions() {
+        assertEquals(
+            "if left < dfs(node):",
+            normalizeRecognizedCodeLine("if left < dfs node:")
+        )
+        assertEquals(
+            "elif has_path(node.left) and depth <= limit:",
+            normalizeRecognizedCodeLine("elif has_path node.left and depth <= limit:")
+        )
+        assertEquals(
+            "while not blocked(node) or score(node) >= best:",
+            normalizeRecognizedCodeLine("while not blocked node or score node >= best:")
+        )
+        assertEquals(
+            "return left < score(node)",
+            normalizeRecognizedCodeLine("return left < score node")
+        )
+    }
+
+    @Test
     fun normalizeRecognizedCodeLine_keepsLiteralEightComparisons() {
         assertEquals(
             "if value == 8",
