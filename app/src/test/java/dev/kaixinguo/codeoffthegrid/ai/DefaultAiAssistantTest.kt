@@ -8,7 +8,25 @@ import org.junit.Test
 class DefaultAiAssistantTest {
     @Test
     fun createProblem_buildsCreateProblemPromptBeforeCallingEngine() = runBlocking {
-        val engine = RecordingQwenEngine(response = "problem-response")
+        val engine = RecordingQwenEngine(
+            response = """
+                {
+                  "schemaVersion": 1,
+                  "type": "standalone_code_practice_problem",
+                  "problem": {
+                    "title": "Two Sum",
+                    "difficulty": "Easy",
+                    "summary": "Generated array hash map problem.",
+                    "statementMarkdown": "Find two indices whose values sum to a target.",
+                    "exampleInput": "nums = [2,7,11,15]\ntarget = 9",
+                    "exampleOutput": "[0,1]",
+                    "starterCode": "class Solution:\n    def twoSum(self, nums, target):\n        pass",
+                    "hints": ["Use a hash map."],
+                    "executionPipeline": "single_method"
+                  }
+                }
+            """.trimIndent()
+        )
         val subject = DefaultAiAssistant(
             promptBuilder = DefaultPromptBuilder(),
             localQwenEngine = engine
@@ -20,7 +38,10 @@ class DefaultAiAssistantTest {
             request = "make the wording more interview-like"
         )
 
-        assertEquals("problem-response", response)
+        assertEquals("Two Sum", response.title)
+        assertEquals("Easy", response.difficulty)
+        assertEquals("Generated array hash map problem.", response.summary)
+        assertEquals("single_method", response.executionPipeline?.storageValue)
         assertTrue(engine.prompts.single().contains("Composer draft context"))
         assertTrue(engine.prompts.single().contains("make the wording more interview-like"))
         assertTrue(engine.prompts.single().contains("coding-problem authoring assistant"))

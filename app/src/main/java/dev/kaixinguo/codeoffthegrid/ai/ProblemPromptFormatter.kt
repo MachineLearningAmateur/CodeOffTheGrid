@@ -69,6 +69,7 @@ internal object ProblemPromptFormatter {
         draft: ProblemComposerDraft,
         effectiveStarterCode: String
     ): String {
+        val missingFields = draft.missingOrWeakFields(effectiveStarterCode)
         val context = buildString {
             appendLine("Composer draft:")
             appendLine("Title: ${draft.title.trim().ifBlank { "(blank)" }}")
@@ -104,6 +105,15 @@ internal object ProblemPromptFormatter {
             appendLine("Execution pipeline override: ${draft.executionPipelineOverride.ifBlank { "Auto Detect" }}")
             appendLine("Advanced submission suite JSON:")
             appendLine(truncateBlock(draft.submissionTestSuiteJson.ifBlank { "(blank)" }, MAX_SUBMISSION_SUITE_CHARS))
+            appendLine()
+            appendLine("Missing or weak fields:")
+            if (missingFields.isEmpty()) {
+                appendLine("- None")
+            } else {
+                missingFields.forEach { field ->
+                    appendLine("- $field")
+                }
+            }
         }.trim()
 
         return truncateBlock(context, MAX_CONTEXT_CHARS)
@@ -223,6 +233,10 @@ internal object ProblemPromptFormatter {
             appendLine("Actual output:")
             appendLine(truncateBlock(caseResult.actualOutput, MAX_TEST_CASE_FIELD_CHARS))
         }
+        if (caseResult.stdout.isNotBlank()) {
+            appendLine("Stdout:")
+            appendLine(truncateBlock(caseResult.stdout, MAX_STDIO_CHARS))
+        }
         if (caseResult.errorOutput.isNotBlank()) {
             appendLine("Error:")
             appendLine(truncateBlock(caseResult.errorOutput, MAX_STDIO_CHARS))
@@ -251,6 +265,19 @@ internal object ProblemPromptFormatter {
                     result.summary == "No recorded custom run yet." ||
                     result.summary == "No recorded local submission run yet."
                 )
+    }
+
+    private fun ProblemComposerDraft.missingOrWeakFields(effectiveStarterCode: String): List<String> {
+        return buildList {
+            if (title.trim().isBlank()) add("Title")
+            if (difficulty.trim().isBlank()) add("Difficulty")
+            if (summary.trim().isBlank()) add("About This Problem")
+            if (statementMarkdown.trim().isBlank()) add("Statement")
+            if (exampleInput.trim().isBlank()) add("Example Input")
+            if (exampleOutput.trim().isBlank()) add("Example Output")
+            if (parseComposerHintsText(hintsText).isEmpty()) add("Hints")
+            if (effectiveStarterCode.trim().isBlank()) add("Starter Code")
+        }
     }
 
     private const val MAX_CONTEXT_CHARS = 5_200

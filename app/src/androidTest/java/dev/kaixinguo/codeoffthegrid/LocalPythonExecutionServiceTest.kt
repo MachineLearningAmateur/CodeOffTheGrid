@@ -627,6 +627,53 @@ class LocalPythonExecutionServiceTest {
         assertPassed(service.runCustomSuite(alienSuite, alienCode))
     }
 
+    @Test
+    fun runCustomSuite_separatesStdoutFromActualResults() = runBlocking {
+        val printOnlySuite = ProblemTestSuite(
+            cases = listOf(
+                ProblemTestCase(
+                    label = "Print only",
+                    expectedOutput = "debug line"
+                )
+            )
+        )
+        val printOnlyCode = """
+            class Solution:
+                def solve(self):
+                    print("debug line")
+        """.trimIndent()
+
+        val printOnlyResult = service.runCustomSuite(printOnlySuite, printOnlyCode)
+        assertPassed(printOnlyResult)
+        assertEquals("", printOnlyResult.cases.single().actualOutput)
+        assertEquals("debug line", printOnlyResult.cases.single().stdout)
+        assertTrue(printOnlyResult.stdout.contains("Print only:"))
+        assertTrue(printOnlyResult.stdout.contains("debug line"))
+
+        val mutateSuite = ProblemTestSuite(
+            cases = listOf(
+                ProblemTestCase(
+                    label = "Mutate with print",
+                    stdin = """{"nums":[2,0,1]}""",
+                    expectedOutput = "[0,1,2]"
+                )
+            )
+        )
+        val mutateCode = """
+            class Solution:
+                def sortColors(self, nums):
+                    nums.sort()
+                    print("sorted in place")
+        """.trimIndent()
+
+        val mutateResult = service.runCustomSuite(mutateSuite, mutateCode)
+        assertPassed(mutateResult)
+        assertEquals("[0,1,2]", mutateResult.cases.single().actualOutput.replace(" ", ""))
+        assertEquals("sorted in place", mutateResult.cases.single().stdout)
+        assertTrue(mutateResult.stdout.contains("Mutate with print:"))
+        assertTrue(mutateResult.stdout.contains("sorted in place"))
+    }
+
     private fun assertPassed(result: dev.kaixinguo.codeoffthegrid.ui.workspace.ProblemExecutionResult) {
         if (result.status != ExecutionStatus.Passed) {
             fail(

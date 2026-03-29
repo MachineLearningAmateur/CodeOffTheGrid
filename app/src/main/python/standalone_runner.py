@@ -189,8 +189,8 @@ def run_suite(source_code: str, suite_json: str) -> str:
             passed_count += 1
         if result["status"] == "error":
             error_count += 1
-        if result["actualOutput"]:
-            suite_stdout.append(f"{result['label']}: {result['actualOutput']}")
+        if result["stdout"]:
+            suite_stdout.append(f"{result['label']}:\n{result['stdout']}")
         if result["errorOutput"]:
             suite_stderr.append(f"{result['label']}: {result['errorOutput']}")
 
@@ -316,10 +316,12 @@ def _run_case(
                 namespace, entrypoint, execution_pipeline, case.get("stdin", "")
             )
 
-        actual_output = _format_output(actual_value, stdout_buffer.getvalue())
+        captured_stdout = stdout_buffer.getvalue().strip()
+        actual_output = _format_output(actual_value)
+        comparison_output = actual_output if actual_output else captured_stdout
         if _matches_expected(
             actual_value,
-            actual_output,
+            comparison_output,
             expected_output,
             comparison_mode,
             acceptable_outputs,
@@ -331,7 +333,8 @@ def _run_case(
             status = "failed"
             error_output = ""
     except Exception:
-        actual_output = stdout_buffer.getvalue().strip()
+        captured_stdout = stdout_buffer.getvalue().strip()
+        actual_output = ""
         status = "error"
         error_output = traceback.format_exc().strip()
 
@@ -342,6 +345,7 @@ def _run_case(
         "status": status,
         "input": case.get("stdin", ""),
         "actualOutput": actual_output,
+        "stdout": captured_stdout,
         "expectedOutput": expected_output,
         "errorOutput": error_output,
         "durationMillis": duration_ms,
@@ -680,9 +684,9 @@ def _matches_expected(
     return actual_output.strip() == expected
 
 
-def _format_output(actual_value: Any, captured_stdout: str) -> str:
+def _format_output(actual_value: Any) -> str:
     if actual_value is None:
-        return captured_stdout.strip()
+        return ""
     if isinstance(actual_value, str):
         return actual_value
     return json.dumps(_sanitize_value(actual_value), ensure_ascii=False)

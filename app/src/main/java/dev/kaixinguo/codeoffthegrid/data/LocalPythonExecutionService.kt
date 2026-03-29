@@ -158,6 +158,7 @@ internal class LocalPythonExecutionService(
             },
             input = optString("input"),
             actualOutput = optString("actualOutput"),
+            stdout = optString("stdout"),
             expectedOutput = optString("expectedOutput"),
             errorOutput = optString("errorOutput"),
             durationMillis = if (has("durationMillis") && !isNull("durationMillis")) {

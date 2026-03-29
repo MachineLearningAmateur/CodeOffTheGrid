@@ -210,6 +210,7 @@ internal data class ProblemTestCaseResult(
     val status: TestCaseStatus,
     val input: String = "",
     val actualOutput: String = "",
+    val stdout: String = "",
     val expectedOutput: String = "",
     val errorOutput: String = "",
     val durationMillis: Long? = null

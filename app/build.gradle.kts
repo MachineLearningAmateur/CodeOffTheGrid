@@ -12,8 +12,8 @@ val keystorePropertiesFile = rootProject.file("keystore.properties")
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use(keystoreProperties::load)
 }
-val appVersionCode = 7
-val appVersionName = "1.2.2"
+val appVersionCode = 8
+val appVersionName = "1.2.3"
 val releaseArtifactBaseName = "CodeOffTheGrid"
 
 android {

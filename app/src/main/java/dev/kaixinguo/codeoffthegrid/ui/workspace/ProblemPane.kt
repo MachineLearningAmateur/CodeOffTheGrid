@@ -684,6 +684,11 @@ private fun buildCaseResultText(result: ProblemTestCaseResult): String {
             append("Actual: ")
             append(result.actualOutput)
         }
+        if (result.stdout.isNotBlank()) {
+            append('\n')
+            append("Stdout: ")
+            append(result.stdout)
+        }
         if (result.errorOutput.isNotBlank()) {
             append('\n')
             append("Error: ")
